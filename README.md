@@ -7,8 +7,8 @@ to behave like a disciplined engineering process: source checks first, test-driv
 implementation, reviewer gates, external review, bounded repair loops, and explicit
 approval before commit.
 
-Two workflows are now shipped: **`implement-loop`** and **`plan-loop`**. More workflow
-skills can live beside them under the same structure.
+Three workflows are now shipped: **`plan-loop`**, **`implement-loop`**, and
+**`debug-loop`**. More workflow skills can live beside them under the same structure.
 
 ---
 
@@ -35,6 +35,10 @@ It is designed for high-stakes repos where "looks good" is not enough.
   off to `implement-loop`.
 - **`implement-loop` skill**: a bounded TDD implementation loop with up to five repair
   iterations.
+- **`debug-loop` skill**: a gated bug investigation loop that validates symptoms,
+  maps evidence authority, requires reproduction before hypothesis, requires trace-backed
+  root cause before handoff, and produces a complete `implement-loop` task. v1 is
+  handoff-only — it does not edit code.
 - **Reliable-source check**: blocks implementation when the plan conflicts with the
   paper, spec, official docs, or repo contracts.
 - **Developer handoff contract**: requires RED, GREEN, full-suite, and coverage evidence.
@@ -54,6 +58,8 @@ forgeloop/
     skills/implement-loop/
     skills/plan-loop.md
     skills/plan-loop/
+    skills/debug-loop.md
+    skills/debug-loop/
     agents/
     AGENTS.template.md
     CLAUDE.template.md
@@ -87,6 +93,53 @@ Implement this task:
 
 For best results, give the loop a task file with context, acceptance criteria, test
 expectations, and verification commands. Start from `templates/task-plan.md`.
+
+## The Debug Loop
+
+`debug-loop` follows eight stages:
+
+1. **Stage 0: Load Symptom**
+   Resolve the bug report or inline symptom description.
+
+2. **Stage 1: Symptom Validation**
+   Ask the user for observed behavior, expected behavior, environment, reproduction
+   inputs, constraints, and success criteria. No analysis starts until the user answers.
+
+3. **Stage 2: Evidence Source Map**
+   Rank runtime evidence, specs/contracts, dependency behavior, and data shape.
+   Conflicts require user resolution — no autonomous choices.
+
+4. **Stage 3: Reproduction Gate**
+   Establish a deterministic reproduction (failing test, failing command, log trace, or
+   manual repro). Hypothesis generation is blocked until RED evidence is confirmed.
+
+5. **Stage 4: Hypothesis and Root-Cause Trace**
+   Form evidence-backed hypotheses. Require trace evidence to a file/line, config,
+   runtime evidence, dependency behavior, or data shape. Fix handoff is blocked until
+   `ROOT_CAUSE: TRACED`.
+
+6. **Stage 5: Debug Handoff Generation**
+   Produce an `implement-loop` task using the canonical schema: `CONTEXT`, `WHAT_TO_DO`,
+   `TESTS`, `VERIFY`, and `CHECKLIST`. v1 does not edit code.
+
+7. **Stage 6: Self-Check and Reviewer Gate**
+   Verify RED evidence, trace completeness, handoff schema, scope discipline, and
+   regression test presence. Then Codex review. Blocking findings enter the repair loop.
+
+8. **Stage 7: Approval Gate**
+   Report the debug report path. Wait for explicit user approval before handing off to
+   `implement-loop`.
+
+Then ask Claude to debug first:
+
+```text
+Use the debug-loop skill.
+
+Investigate this bug:
+<symptom description or bug report file>
+```
+
+Start from `templates/debug-loop-report.md` to see the required report format.
 
 ## The Plan Loop
 
@@ -191,6 +244,8 @@ silently treat an unavailable outer review as a pass.
   skills/implement-loop/*.md
   skills/plan-loop.md
   skills/plan-loop/*.md
+  skills/debug-loop.md
+  skills/debug-loop/*.md
   agents/developer.md
   agents/source-check.md
   agents/tester.md

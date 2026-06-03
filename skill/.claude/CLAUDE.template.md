@@ -2,11 +2,13 @@
 
 Copy to `CLAUDE.md` and adapt.
 
-Use ForgeLoop for all planning and implementation work:
+Use ForgeLoop for all planning, implementation, and debugging work:
 
+- For bug investigation, invoke `/debug-loop` first to reproduce the symptom, trace the
+  root cause, and produce a verified implement-loop handoff before any code is written.
 - For new features or significant changes, invoke `/plan-loop` first to produce a
   verified, requirement-traced plan before any code is written.
-- For code changes with an approved plan, invoke `/implement-loop`.
+- For code changes with an approved plan or debug handoff, invoke `/implement-loop`.
 - Do not skip source checks, tests, reviewer gates, or approval gates.
 - Do not commit automatically unless the user explicitly asks after convergence.
 
