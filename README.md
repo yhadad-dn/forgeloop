@@ -18,9 +18,22 @@ Three workflows are now shipped: **`plan-loop`**, **`implement-loop`**, and
 
 ## Why ForgeLoop
 
-Agentic coding fails when it skips the boring parts: verifying the source of truth,
-writing real regression tests, checking coverage, reviewing the actual diff, and stopping
-when requirements conflict.
+ForgeLoop is built for research-heavy engineering, where the source of truth may be a
+paper, a reference implementation, an official spec, a repo contract, or an explicit
+experimental decision. It takes inspiration from the useful parts of Superpowers, but is
+structured for workflows where technical intent, evidence, and reproducibility matter more
+than fast code generation.
+
+The failure mode it targets is common in agentic coding: a model produces a confident
+implementation without grounding it in the right source, skips the regression test, or
+chooses a path through an ambiguous requirement without asking. ForgeLoop avoids relying
+on one model in isolation. Claude works inside a strict planning, implementation, or
+debugging loop; Codex acts as an independent outer reviewer. The loop iterates until the
+plan, code, tests, and review evidence converge.
+
+The human remains the authority for intent and tradeoffs. You define the sources of truth,
+constraints, and acceptance criteria. When requirements are ambiguous, sources conflict, or
+a decision point is underspecified, ForgeLoop stops and asks instead of guessing.
 
 ForgeLoop turns those steps into a repeatable loop:
 
