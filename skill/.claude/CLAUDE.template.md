@@ -2,9 +2,11 @@
 
 Copy to `CLAUDE.md` and adapt.
 
-Use ForgeLoop for implementation work:
+Use ForgeLoop for all planning and implementation work:
 
-- For code changes, invoke `/implement-loop`.
+- For new features or significant changes, invoke `/plan-loop` first to produce a
+  verified, requirement-traced plan before any code is written.
+- For code changes with an approved plan, invoke `/implement-loop`.
 - Do not skip source checks, tests, reviewer gates, or approval gates.
 - Do not commit automatically unless the user explicitly asks after convergence.
 

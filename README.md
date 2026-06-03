@@ -7,8 +7,8 @@ to behave like a disciplined engineering process: source checks first, test-driv
 implementation, reviewer gates, external review, bounded repair loops, and explicit
 approval before commit.
 
-The first shipped workflow is **`implement-loop`**. More workflow skills, such as
-`plan-loop`, can live beside it under the same structure.
+Two workflows are now shipped: **`implement-loop`** and **`plan-loop`**. More workflow
+skills can live beside them under the same structure.
 
 ---
 
@@ -29,6 +29,10 @@ It is designed for high-stakes repos where "looks good" is not enough.
 
 ## What You Get
 
+- **`plan-loop` skill**: a gated planning loop that validates requirements, maps source
+  authority, forces user-only decision resolution, generates a complete plan, self-checks
+  it, passes it through internal and Codex review, and waits for approval before handing
+  off to `implement-loop`.
 - **`implement-loop` skill**: a bounded TDD implementation loop with up to five repair
   iterations.
 - **Reliable-source check**: blocks implementation when the plan conflicts with the
@@ -48,10 +52,13 @@ forgeloop/
   skill/.claude/                  # installable Claude payload
     skills/implement-loop.md
     skills/implement-loop/
+    skills/plan-loop.md
+    skills/plan-loop/
     agents/
     AGENTS.template.md
     CLAUDE.template.md
   templates/                      # copyable task/report templates
+  tests/                          # skill-text enforcement checks
   docs/                           # adaptation and setup notes
   examples/                       # tiny examples for learning the loop
   scripts/install.sh              # copies the payload into another repo
@@ -80,6 +87,51 @@ Implement this task:
 
 For best results, give the loop a task file with context, acceptance criteria, test
 expectations, and verification commands. Start from `templates/task-plan.md`.
+
+## The Plan Loop
+
+`plan-loop` follows eight stages:
+
+1. **Stage 0: Load Request**  
+   Resolve the request file or inline description and extract the raw goal.
+
+2. **Stage 1: Requirements Validation**  
+   Ask the user targeted questions (goal, non-goals, constraints, success criteria).
+   Plan generation is blocked until the user answers.
+
+3. **Stage 2: Reliable-Source Map**  
+   List, rank, and approve all authoritative sources. Conflicting sources stop the loop
+   and require a user decision.
+
+4. **Stage 3: Decision Gate**  
+   Surface every unresolved decision. The user resolves each one. No autonomous choices.
+
+5. **Stage 4: Plan Generation**  
+   Write the plan using only validated requirements, approved sources, and explicit user
+   decisions. No new sources may be introduced here.
+
+6. **Stage 5: Plan Self-Check**  
+   Verify requirement coverage, source traceability, no unresolved decisions, no
+   placeholders, and signature consistency.
+
+7. **Stage 6: Reviewer Gate**  
+   Internal passes (completeness, traceability, consistency, feasibility, handoff),
+   then Codex review. Blocking findings enter the repair loop.
+
+8. **Stage 7: Approval Gate**  
+   Report the final plan path. Wait for explicit user approval before handing off to
+   `implement-loop`.
+
+Then ask Claude to plan first:
+
+```text
+Use the plan-loop skill.
+
+Plan this feature:
+<description or request file>
+```
+
+Start from `templates/plan-loop-plan.md` to see the required plan format.
 
 ## The Implement Loop
 
@@ -137,6 +189,8 @@ silently treat an unavailable outer review as a pass.
 .claude/
   skills/implement-loop.md
   skills/implement-loop/*.md
+  skills/plan-loop.md
+  skills/plan-loop/*.md
   agents/developer.md
   agents/source-check.md
   agents/tester.md
