@@ -1,5 +1,9 @@
 # ForgeLoop
 
+<p align="center">
+  <img src="assets/forgeloop_logo.png" alt="ForgeLoop logo" width="640">
+</p>
+
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
