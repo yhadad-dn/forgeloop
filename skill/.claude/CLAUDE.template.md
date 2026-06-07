@@ -2,8 +2,10 @@
 
 Copy to `CLAUDE.md` and adapt.
 
-Use ForgeLoop for all planning, implementation, and debugging work:
+Use ForgeLoop for all planning, implementation, debugging, and cluster work:
 
+- For SLURM cluster allocation, invoke `/cluster-loop` to survey the allocation map,
+  get node recommendations, and allocate via salloc inside a tmux session.
 - For bug investigation, invoke `/debug-loop` first to reproduce the symptom, trace the
   root cause, and produce a verified implement-loop handoff before any code is written.
 - For new features or significant changes, invoke `/plan-loop` first to produce a

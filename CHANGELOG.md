@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+- Added `cluster-loop` workflow skill (v1: map + recommend + allocate + srun).
+- Added `skill/.claude/skills/cluster-loop/` sub-files (preflight, allocation-map,
+  node-recommender, allocate, srun-inside).
+- Added `templates/cluster-loop-report.md` report template.
+- Added `tests/check-cluster-loop-skill.sh` enforcement checks (20 assertions).
+- Extended `cluster_node_map.md` with formalized schema (partition, auth_type,
+  sshpass_required, last_known_status, last_surveyed).
+- Updated README, CHANGELOG, CLAUDE.template.md.
+
 ## 0.4.0
 
 - Added `codex-model-check.md`: sub-agent that verifies the current Codex CLI model

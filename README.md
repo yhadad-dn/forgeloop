@@ -56,6 +56,10 @@ It is designed for high-stakes repos where "looks good" is not enough.
   maps evidence authority, requires reproduction before hypothesis, requires trace-backed
   root cause before handoff, and produces a complete `implement-loop` task. v1 is
   handoff-only — it does not edit code.
+- **`cluster-loop` skill**: a SLURM cluster allocation skill that surveys the full
+  allocation map (sinfo + squeue + ps), recommends available nodes, allocates via
+  `salloc --no-shell` inside an auto-created tmux session so the allocation survives
+  disconnects, and runs `srun` inside the active allocation.
 - **Reliable-source check**: blocks implementation when the plan conflicts with the
   paper, spec, official docs, or repo contracts.
 - **Developer handoff contract**: requires RED, GREEN, full-suite, and coverage evidence.
@@ -77,6 +81,8 @@ forgeloop/
     skills/plan-loop/
     skills/debug-loop.md
     skills/debug-loop/
+    skills/cluster-loop.md
+    skills/cluster-loop/
     agents/
     AGENTS.template.md
     CLAUDE.template.md
