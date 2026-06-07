@@ -49,12 +49,13 @@ Suggested command:
 
 ```bash
 codex exec review \
-  -m "gpt-5.5" \
+  -m "${CODEX_MODEL}" \
   --output-last-message ".claude/codex_verdicts/debug_verdict_iter${ITER}.md" \
   - < /tmp/codex_debug_prompt_iter${ITER}.txt
 ```
 
-Adapt the model name and command to your Codex installation.
+`CODEX_MODEL` is set in Stage 0.1 of the loop by the Codex model check sub-agent.
+See `codex-model-check.md` for the verification protocol and fallback behavior.
 
 Verdict handling:
 

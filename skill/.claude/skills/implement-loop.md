@@ -23,6 +23,7 @@ gate becomes a bounded repair plan before another implementation pass. Stop afte
 
 Reference files:
 
+- `codex-model-check.md`
 - `implement-loop/source-check.md`
 - `implement-loop/stage-r.md`
 - `implement-loop/coverage-gate.md`
@@ -69,7 +70,16 @@ fix_source = ""
 repair_plan = ""
 source_check = ""
 iteration_log = []
+CODEX_MODEL = ""
+CODEX_BASE_COMMAND = ""
 ```
+
+## Stage 0.1: Codex Model Check
+
+Read `codex-model-check.md`.
+
+Spawn a sub-agent to verify the current recommended Codex CLI model. Record
+`CODEX_MODEL` and `CODEX_BASE_COMMAND` in loop state. Use these values at Stage C.
 
 ## Stage 0.5: Reliable-Source Check
 

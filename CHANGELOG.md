@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Added `codex-model-check.md`: sub-agent that verifies the current Codex CLI model
+  at loop startup and stores it in `CODEX_MODEL`.
+- Added Stage 0.1 (Codex Model Check) to `implement-loop`, `plan-loop`, and
+  `debug-loop`.
+- Replaced hard-coded `gpt-5.5` with `${CODEX_MODEL}` in all three
+  `review-gates.md` files.
+- Added `tests/check-codex-model-check.sh` (11 assertions).
+- Updated `docs/codex-cli-setup.md` to document the model-check protocol.
+
 ## 0.3.0
 
 - Added `debug-loop` workflow skill (v1: handoff-only).

@@ -24,6 +24,7 @@ established. No approval is granted while decisions remain unresolved.
 
 Reference files:
 
+- `codex-model-check.md`
 - `plan-loop/requirements-validation.md`
 - `plan-loop/source-authority.md`
 - `plan-loop/plan-format.md`
@@ -58,7 +59,16 @@ requirements_validated = false
 sources_established = false
 decisions_resolved = false
 plan_path = ""
+CODEX_MODEL = ""
+CODEX_BASE_COMMAND = ""
 ```
+
+## Stage 0.1: Codex Model Check
+
+Read `codex-model-check.md`.
+
+Spawn a sub-agent to verify the current recommended Codex CLI model. Record
+`CODEX_MODEL` and `CODEX_BASE_COMMAND` in loop state. Use these values at Stage 6b.
 
 ## Stage 1: Requirements Validation
 

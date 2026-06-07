@@ -26,6 +26,7 @@ happen only through an approved `implement-loop` handoff.
 
 Reference files:
 
+- `codex-model-check.md`
 - `debug-loop/symptom-validation.md`
 - `debug-loop/evidence-map.md`
 - `debug-loop/reproduction-gate.md`
@@ -63,7 +64,16 @@ evidence_established = false
 red_evidence = ""
 root_cause_trace = ""
 debug_report_path = ""
+CODEX_MODEL = ""
+CODEX_BASE_COMMAND = ""
 ```
+
+## Stage 0.1: Codex Model Check
+
+Read `codex-model-check.md`.
+
+Spawn a sub-agent to verify the current recommended Codex CLI model. Record
+`CODEX_MODEL` and `CODEX_BASE_COMMAND` in loop state. Use these values at Stage 6b.
 
 ## Stage 1: Symptom Validation
 
