@@ -4,9 +4,29 @@ Run at the start of any loop that uses the Codex CLI gate. Verifies the current
 recommended Codex CLI model before any gate invocation so the loop uses a working,
 up-to-date model rather than a stale default.
 
-## Sub-Agent Run
+## Step 1: Try the default model
 
-Spawn a sub-agent with web access. Give it this prompt:
+Attempt to run a no-op probe with the default model (`gpt-5.5`):
+
+```bash
+codex exec review -m "gpt-5.5" --help 2>&1 | head -3
+```
+
+If the command exits successfully (exit code 0) or prints recognisable Codex CLI
+output, treat the default as **confirmed** — no web search needed:
+
+```text
+CODEX_MODEL_CHECK: VERIFIED
+CODEX_MODEL: gpt-5.5
+CODEX_BASE_COMMAND: codex exec review -m "gpt-5.5"
+SOURCE: local-probe
+VERIFIED_AT: <UTC timestamp>
+```
+
+## Step 2: Web search (only if step 1 fails)
+
+If the probe fails (non-zero exit, "model not found", "unknown model", or similar
+error), spawn a sub-agent with web access and give it this prompt:
 
 ```
 Search for the current recommended model for the OpenAI Codex CLI (the agentic

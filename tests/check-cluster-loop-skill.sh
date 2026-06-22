@@ -123,6 +123,11 @@ check \
     "$SKILL_DIR/cluster-loop/allocate.md" \
     "salloc.*--no-shell"
 
+check \
+    "allocate.md prefixes SLURM job name with yhadad_" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    "yhadad_\\$\\{JOB_NAME\\}"
+
 # --- Behavior 5: Approval gate before allocation ----------------------------
 check \
     "allocate.md requires user confirmation before salloc" \

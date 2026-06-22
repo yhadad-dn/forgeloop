@@ -34,6 +34,7 @@ Confirm? [yes/no]
 
 ```bash
 SESSION="cluster-${NODE}-$(date +%Y%m%d-%H%M)"
+SLURM_JOB_NAME="yhadad_${JOB_NAME}"
 ```
 
 ### Step 2 — Ensure session name is unique
@@ -46,7 +47,7 @@ tmux ls 2>/dev/null | grep -q "^${SESSION}:" && SESSION="${SESSION}-2"
 
 ```bash
 tmux new-session -d -s "${SESSION}" \
-  "salloc --no-shell --job-name='${JOB_NAME}' \
+  "salloc --no-shell --job-name='${SLURM_JOB_NAME}' \
    -p ${PARTITION} -w ${NODE_LIST} -t ${DURATION}"
 ```
 
@@ -54,7 +55,7 @@ tmux new-session -d -s "${SESSION}" \
 
 ```bash
 for i in $(seq 1 10); do
-  JOBID=$(squeue -u $USER -h -o "%i %T %j" | grep "${JOB_NAME}" | awk '$2=="R"{print $1}')
+  JOBID=$(squeue -u $USER -h -o "%i %T %j" | grep "${SLURM_JOB_NAME}" | awk '$2=="R"{print $1}')
   [[ -n "${JOBID}" ]] && break
   sleep 3
 done

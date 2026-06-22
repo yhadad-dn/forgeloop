@@ -72,8 +72,9 @@ CODEX_BASE_COMMAND = ""
 
 Read `codex-model-check.md`.
 
-Spawn a sub-agent to verify the current recommended Codex CLI model. Record
-`CODEX_MODEL` and `CODEX_BASE_COMMAND` in loop state. Use these values at Stage 6b.
+Follow the protocol in `codex-model-check.md`: probe `gpt-5.5` locally first; only
+run a web-search sub-agent if the probe fails. Record `CODEX_MODEL` and
+`CODEX_BASE_COMMAND` in loop state. Use these values at Stage 6b.
 
 ## Stage 1: Symptom Validation
 
