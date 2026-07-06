@@ -8,9 +8,13 @@ Review the debug report and handoff document (not code) from five angles:
 |---|---|
 | evidence integrity | RED evidence is real, captured, and deterministic; no "I think it reproduces" |
 | trace completeness | Root-cause trace cites at least one allowed evidence type; no speculative statements |
+| debugger evidence | When Stage 4 ran debugger sessions, the RED/GREEN session JSON paths exist and match the reported statuses |
 | handoff correctness | CONTEXT / WHAT_TO_DO / TESTS / VERIFY / CHECKLIST are complete and internally consistent |
 | scope discipline | WHAT_TO_DO is scoped to the traced root cause; no extra or unrelated changes |
 | regression coverage | TESTS includes a specific regression test that would have caught the original bug |
+
+Allowed `trace_evidence.type` values: `file_line`, `config`, `runtime_evidence`,
+`dependency_behavior`, `data_shape`, `debugger_session`.
 
 Classify each finding:
 

@@ -4,7 +4,8 @@ description: >
   Gated bug investigation loop with symptom validation, evidence source mapping,
   mandatory reproduction gate, trace-backed root-cause analysis, handoff generation,
   reviewer gate, and approval before implement-loop handoff.
-  v1 is handoff-only: it does not edit code.
+  v2: Stage 4 integrates a DAP debugger (debugpy/dlv, pdb fallback) for
+  agent-driven RED/GREEN proof; it does not stage or commit code.
   Invoke with: /debug-loop <symptom-or-file>.
 ---
 
@@ -21,7 +22,8 @@ load symptom -> symptom validation -> evidence source map
 ```
 
 Hypothesis generation is blocked until RED evidence exists. Fix handoff is blocked
-until root-cause trace evidence exists. `debug-loop` v1 does not edit code. Fixes
+until root-cause trace evidence exists. `debug-loop` v2 may write a temporary
+proof-of-fix copy during Stage 4, but it does not stage or commit code. Fixes
 happen only through an approved `implement-loop` handoff.
 
 Reference files:
@@ -31,6 +33,7 @@ Reference files:
 - `debug-loop/evidence-map.md`
 - `debug-loop/reproduction-gate.md`
 - `debug-loop/root-cause-trace.md`
+- `debug-loop/debugger.md`
 - `debug-loop/handoff-format.md`
 - `debug-loop/review-gates.md`
 
@@ -117,9 +120,12 @@ Set `red_evidence` only after returning `REPRODUCTION: CONFIRMED`.
 
 ## Stage 4: Hypothesis and Root-Cause Trace
 
-Read `debug-loop/root-cause-trace.md`.
+Read `debug-loop/root-cause-trace.md` and `debug-loop/debugger.md`.
 
 Form bounded, evidence-backed hypotheses only after `red_evidence` is confirmed.
+Use the debugger sub-system (Steps 4.1/4.2) for agent-driven RED/GREEN proof of
+the leading hypothesis; the provisional GREEN fix lives only in a temporary
+workspace and is deleted after the session.
 
 **Do not generate the handoff until root-cause trace evidence exists.**
 
@@ -132,7 +138,8 @@ Read `debug-loop/handoff-format.md`.
 Produce an `implement-loop` task file using the canonical schema: `CONTEXT`,
 `WHAT_TO_DO`, `TESTS`, `VERIFY`, and `CHECKLIST`.
 
-`debug-loop` v1 does not edit code. The handoff document is the deliverable.
+`debug-loop` does not stage or commit code. The handoff document is the
+deliverable.
 
 Record `debug_report_path` after writing the report and handoff.
 
@@ -144,7 +151,7 @@ Self-check before review:
 
 1. RED evidence is present and reproducible.
 2. Root-cause trace cites at least one allowed evidence type (file/line, config,
-   runtime evidence, dependency behavior, or data shape).
+   runtime evidence, dependency behavior, data shape, or debugger_session).
 3. `WHAT_TO_DO` is scoped to the traced root cause; no speculative changes.
 4. Handoff schema is complete: `CONTEXT`, `WHAT_TO_DO`, `TESTS`, `VERIFY`, `CHECKLIST`.
 5. No unresolved decisions remain.

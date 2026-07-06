@@ -16,10 +16,32 @@ Run only after RED evidence is confirmed (Stage 3: `REPRODUCTION: CONFIRMED`).
      regression or breaking API change.
    - **data shape**: unexpected input format, type mismatch, or schema gap at a system
      boundary that the code does not handle.
+   - **debugger_session**: captured DAP/pdb session (frames, locals, exception at the
+     hypothesized defect site) — location is the path to the
+     `debugger-session-{N}-red.json` file.
 3. Eliminate alternative hypotheses before selecting one. Document why each alternative
    was ruled out.
 4. If evidence contradicts the leading hypothesis, record it, revise the ranking, and
    repeat.
+
+## Debugger Evidence (Steps 4.1 and 4.2)
+
+Read `debug-loop/debugger.md` for the full protocol. Only Stage 4 invokes the
+debugger; Stage 3 is never modified by it.
+
+- **Step 4.1 — RED session**: after pre-flight (`DEBUGGER_PREFLIGHT: READY`),
+  launch the Stage 3 reproduction command (same cwd, env, args) under the
+  debugger and run `scripts/dap_client.py --mode red` with breakpoints at the
+  hypothesized defect site. RED is confirmed only when the stop is reached
+  (`BREAKPOINT_HIT` or `EXCEPTION_CAUGHT`) and the process fails. `NO_STOP`
+  means the hypothesis site was never reached — revise the hypothesis
+  (increments `hypothesis_attempt`).
+- **Step 4.2 — GREEN session**: apply the minimal provisional fix to a temporary
+  patched workspace, rerun the same reproduction command with
+  `dap_client.py --mode green`, and confirm `status: CLEAN_EXIT`. Delete the
+  temp workspace afterwards; it is never staged or committed.
+- Map the RED session file into `trace_evidence` as `type: debugger_session`
+  with `location` set to the session JSON path (never a string sentinel).
 
 ## Required Output
 
@@ -29,14 +51,19 @@ HYPOTHESES:
   - rank: 1
     hypothesis: <description>
     trace_evidence:
-      type: file_line | config | runtime_evidence | dependency_behavior | data_shape
-      location: <file:line, config key, log reference, dependency version, or boundary>
+      type: file_line | config | runtime_evidence | dependency_behavior | data_shape | debugger_session
+      location: <file:line, config key, log reference, dependency version, boundary, or debugger-session path>
       supports: <how this evidence supports the hypothesis>
     ruled_out_alternatives:
       - <alternative hypothesis>: <reason ruled out, or "none">
 SELECTED_ROOT_CAUSE: <selected hypothesis text>
 CONFIDENCE: high | medium | low
 RESIDUAL_UNCERTAINTY: <remaining unknown, or "none">
+debugger_evidence:   # optional; present when Steps 4.1/4.2 ran
+  red_session: <path to debugger-session-N-red.json (DAP) or debugger-session-N-red-pdb.json (pdb fallback)>
+  green_session: <path to debugger-session-N-green.json (DAP) or debugger-session-N-green-pdb.json (pdb fallback)>
+  red_status: BREAKPOINT_HIT | EXCEPTION_CAUGHT | NO_STOP | FALLBACK_PDB
+  green_status: CLEAN_EXIT | FAILED
 ```
 
 ## Iteration Bound

@@ -44,9 +44,13 @@ Conflicts: {description or "none"}
 **Selected root cause:** {description}
 
 **Trace evidence:**
-- Type: {file_line | config | runtime_evidence | dependency_behavior | data_shape}
-- Location: {file:line, config key, log reference, dependency version, or boundary}
+- Type: {file_line | config | runtime_evidence | dependency_behavior | data_shape | debugger_session}
+- Location: {file:line, config key, log reference, dependency version, boundary, or debugger-session path}
 - Supports: {how this evidence supports the hypothesis}
+
+**Debugger evidence (optional — present when Stage 4 ran debugger sessions):**
+- RED session: {path to debugger-session-N-red.json, or "n/a"} — {BREAKPOINT_HIT | EXCEPTION_CAUGHT | NO_STOP | FALLBACK_PDB}
+- GREEN session: {path to debugger-session-N-green.json, or "n/a"} — {CLEAN_EXIT | FAILED}
 
 **Ruled out alternatives:**
 - {alternative}: {reason ruled out, or "none"}

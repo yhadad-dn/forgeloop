@@ -85,11 +85,11 @@ check \
     "$SKILL_DIR/debug-loop/reproduction-gate.md" \
     "Do not proceed to Stage 4 until RED evidence exists"
 
-# --- Behavior 2: v1 prohibits code edits ------------------------------------
+# --- Behavior 2: v2 prohibits staging/committing code ------------------------
 check \
-    "debug-loop.md prohibits code edits in v1" \
+    "debug-loop.md prohibits staging or committing code" \
     "$SKILL_DIR/debug-loop.md" \
-    "does not edit code"
+    "does not stage or commit"
 
 # --- Behavior 3: Root-cause trace required before fix handoff ----------------
 check \
@@ -127,6 +127,22 @@ check \
     "root-cause-trace.md includes data shape as a trace type" \
     "$SKILL_DIR/debug-loop/root-cause-trace.md" \
     "data shape"
+
+# --- Behavior 4a: Stage 4 debugger sub-system integration --------------------
+check \
+    "debug-loop.md references debug-loop/debugger.md" \
+    "$SKILL_DIR/debug-loop.md" \
+    "debug-loop/debugger\.md"
+
+check \
+    "evidence-map.md includes debugger_session evidence" \
+    "$SKILL_DIR/debug-loop/evidence-map.md" \
+    "debugger_session"
+
+check \
+    "root-cause-trace.md includes debugger_session as a trace type" \
+    "$SKILL_DIR/debug-loop/root-cause-trace.md" \
+    "debugger_session"
 
 # --- Behavior 4b: Stage 4 hypothesis attempts are bounded -------------------
 check \

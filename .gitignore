@@ -11,3 +11,8 @@ htmlcov/
 dist/
 build/
 
+# Debugger session artifacts capture locals/variable values and may contain
+# secrets; never commit them. **/ also covers sessions launched from a
+# reproducer cwd in a repo subdirectory.
+**/.claude/debug-reports/
+

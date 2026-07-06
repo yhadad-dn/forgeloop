@@ -7,7 +7,8 @@ Run after Stage 1. Run before Stage 3.
 Rank evidence in this order:
 
 1. **Runtime evidence**: logs, stack traces, crash dumps, test output — authoritative
-   for what is actually happening.
+   for what is actually happening. `debugger_session` evidence (captured DAP/pdb
+   sessions from Stage 4) ranks here: it is a direct observation of running code.
 2. **Specs and source contracts**: official docs, repo source files — authoritative
    for what should happen.
 3. **Dependency behavior**: version changelogs, dependency source code — authoritative
@@ -24,6 +25,10 @@ EVIDENCE:
   runtime:
     - source: <log file, test output, stack trace location>
       shows: <what it demonstrates about observed behavior>
+  debugger_session:
+    - source: <.claude/debug-reports/debugger-session-N-red.json>
+      shows: <captured stack frames, local variable state, and exception at point of failure>
+      produced_by: <dap_client.py --mode red (debugpy/dlv) or pdb fallback>
   specs_contracts:
     - source: <doc or file:line>
       shows: <what it demonstrates about intended behavior>
