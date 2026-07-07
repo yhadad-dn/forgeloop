@@ -329,11 +329,24 @@ class DAPSession:
     def do_continue(self, thread_id: int) -> None:
         self._send_request("continue", {"threadId": thread_id})
 
-    def _step(self, command: str, thread_id: int) -> dict:
+    def _step(self, command: str, thread_id: int) -> Optional[dict]:
+        """Send a step request; return the stopped event, or None when the
+        step ran the debuggee to completion (exited queued, or terminated
+        without exited — debugpy attach mode). The exited event is left
+        queued for wait_for_exit."""
         self._send_request(command, {"threadId": thread_id})
         deadline = time.time() + self.timeout
+        grace_deadline = None
         while not self._event_queues.get("stopped"):
-            if time.time() > deadline:
+            if self._event_queues.get("exited"):
+                return None  # step ran the debuggee to completion
+            if self._terminated_seen and grace_deadline is None:
+                grace_deadline = min(time.time() + min(2.0, self.timeout),
+                                     deadline)
+            now = time.time()
+            if grace_deadline is not None and now >= grace_deadline:
+                return None  # terminated, no exited (debugpy attach mode)
+            if now > deadline:
                 raise TimeoutError(f"timed out waiting for stop after "
                                    f"{command}")
             try:
@@ -347,13 +360,13 @@ class DAPSession:
                     f"socket closed while stepping ({command}): {exc}")
         return self._event_queues["stopped"].pop(0)
 
-    def step_over(self, thread_id: int) -> dict:
+    def step_over(self, thread_id: int) -> Optional[dict]:
         return self._step("next", thread_id)
 
-    def step_in(self, thread_id: int) -> dict:
+    def step_in(self, thread_id: int) -> Optional[dict]:
         return self._step("stepIn", thread_id)
 
-    def step_out(self, thread_id: int) -> dict:
+    def step_out(self, thread_id: int) -> Optional[dict]:
         return self._step("stepOut", thread_id)
 
     def disconnect(self) -> None:
@@ -510,15 +523,21 @@ class DAPSession:
                 step_methods = {"step_over": self.step_over,
                                 "step_in": self.step_in,
                                 "step_out": self.step_out}
+                debuggee_ended_mid_step = False
                 for action in (step_sequence or []):
-                    step_methods[action](thread_id)
+                    if step_methods[action](thread_id) is None:
+                        # Debuggee ended mid-step; keep prior evidence and
+                        # let wait_for_exit classify via exit-code recovery.
+                        debuggee_ended_mid_step = True
+                        break
                     frames = self._capture_frames(thread_id)
                     result["steps"].append({
                         "action": action,
                         "frames": frames,
                         "locals": frames[0]["locals"] if frames else {},
                     })
-                self.do_continue(thread_id)
+                if not debuggee_ended_mid_step:
+                    self.do_continue(thread_id)
 
             def on_secondary_stop(event):
                 body = event.get("body") or {}

@@ -383,6 +383,82 @@ class TestDAPProtocol(unittest.TestCase):
             self.assertIn("frames", entry)
             self.assertIn("locals", entry)
 
+    def test_step_past_program_end_no_timeout(self):
+        # Regression (debug-loop 2026-07-07, repro-step-run{1,2,3}): a step
+        # that runs the debuggee to completion emits terminated only (debugpy
+        # attach mode) — the session must keep the breakpoint evidence and
+        # recover the exit code, not burn the timeout as TIMEOUT.
+        def script(msg):
+            cmd = msg.get("command")
+            seq = msg.get("seq")
+            resp = {"type": "response", "request_seq": seq, "success": True,
+                    "command": cmd}
+            if cmd in ("attach", "launch"):
+                return [{"type": "event", "event": "initialized"}, resp]
+            if cmd == "setBreakpoints":
+                return [dict(resp, body={"breakpoints": [
+                    {"verified": True, "line": 3}]})]
+            if cmd == "configurationDone":
+                return [resp, {"type": "event", "event": "stopped",
+                               "body": {"reason": "breakpoint", "threadId": 1}}]
+            if cmd == "stackTrace":
+                return [dict(resp, body={"stackFrames": [
+                    {"id": 11, "name": "<module>", "line": 3,
+                     "source": {"path": "three_lines.py"}}]})]
+            if cmd == "scopes":
+                return [dict(resp, body={"scopes": [
+                    {"name": "Locals", "variablesReference": 101}]})]
+            if cmd == "variables":
+                return [dict(resp, body={"variables": [
+                    {"name": "x", "value": "1"}]})]
+            if cmd == "next":
+                # Step runs the program to completion: terminated, no
+                # stopped, no exited.
+                return [resp, {"type": "event", "event": "terminated"}]
+            return [resp]
+
+        fake = FakeSocket(script, idle_when_empty=True)
+        session = make_session(fake, timeout=0.5)
+        tmpdir = tempfile.mkdtemp(prefix="dap-step-end-")
+        self.addCleanup(shutil.rmtree, tmpdir, ignore_errors=True)
+        exit_file = os.path.join(tmpdir, "exit.code")
+        with open(exit_file, "w", encoding="utf-8") as fh:
+            fh.write("0\n")
+        result = session.run_session(breakpoints=["three_lines.py:3"],
+                                     mode="red",
+                                     step_sequence=["step_over"],
+                                     exit_code_file=exit_file)
+        self.assertEqual(result["status"], "BREAKPOINT_HIT")
+        self.assertEqual(result["exit_code"], 0)
+        self.assertEqual(result["exit_code_source"], "process_wait")
+        self.assertTrue(result["frames"])  # breakpoint evidence kept
+        self.assertEqual(result["steps"], [])  # step ended the debuggee
+
+    def test_step_exited_event_returns_none(self):
+        # dlv-style lifecycle: `exited` arrives after the step request. The
+        # step method must report end-of-debuggee (None) and leave the exited
+        # event queued for wait_for_exit.
+        def script(msg):
+            cmd = msg.get("command")
+            seq = msg.get("seq")
+            resp = {"type": "response", "request_seq": seq, "success": True,
+                    "command": cmd}
+            if cmd in ("attach", "launch"):
+                return [{"type": "event", "event": "initialized"}, resp]
+            if cmd == "next":
+                return [resp, {"type": "event", "event": "exited",
+                               "body": {"exitCode": 0}}]
+            return [resp]
+
+        fake = FakeSocket(script)
+        session = make_session(fake, timeout=2)
+        session.initialize()
+        session.attach()
+        session.wait_for_initialized()
+        self.assertIsNone(session.step_over(1))
+        self.assertTrue(session._event_queues.get("exited"),
+                        "exited event must stay queued for wait_for_exit")
+
     def test_explicit_dlv_missing_is_blocked(self):
         # Explicit --debugger dlv with Delve absent must exit 3 (BLOCKED),
         # never 1 — exit 1 signals "connection failed -> pdb fallback" and
