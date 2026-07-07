@@ -200,6 +200,22 @@ check \
     "$SKILL_DIR/plan-loop/review-gates.md" \
     "Stage 6"
 
+# --- Codex verdicts accepted in contract or native form ----------------------
+check \
+    "plan-loop/review-gates.md accepts the Codex-native review verdict form" \
+    "$SKILL_DIR/plan-loop/review-gates.md" \
+    "[Nn]ative"
+
+check \
+    "plan-loop/review-gates.md: absence of output is never a pass" \
+    "$SKILL_DIR/plan-loop/review-gates.md" \
+    "never a pass"
+
+check \
+    "plan-loop/review-gates.md maps P1/P2 native findings to FAIL" \
+    "$SKILL_DIR/plan-loop/review-gates.md" \
+    "P1/P2"
+
 # --- Summary -----------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

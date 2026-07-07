@@ -52,11 +52,21 @@ codex exec review \
 `CODEX_MODEL` is set in Stage 0.1 of the loop by the Codex model check sub-agent.
 See `codex-model-check.md` for the verification protocol and fallback behavior.
 
-Verdict handling:
+Verdict handling — accept a verdict in either of two forms:
 
-- Accept only a verdict whose first line is `OVERALL: PASS` or `OVERALL: FAIL`.
-- Require a `FIX_BRIEF` section.
-- Retry malformed or empty output once.
+1. **Contract form**: first line is `OVERALL: PASS` or `OVERALL: FAIL`, with a
+   `FIX_BRIEF` section.
+2. **Codex-native review form** (`codex exec review` post-processes output into
+   its own summary nondeterministically): map any P1/P2 finding to
+   `OVERALL: FAIL` with `FIX_BRIEF` taken verbatim from the findings; map an
+   explicit no-blocking statement (e.g. "No blocking issues were found") to
+   `OVERALL: PASS`.
+
+Safety rules:
+
+- Absence of output — or output with neither findings nor an explicit
+  no-blocking statement — is never a pass. Retry once, then treat as
+  `codex_overall = ERROR`.
 - Treat unavailable CLI, authentication failure, unsupported model, or denied approval
   as `codex_overall = ERROR`.
 - If retry also errors, write a divergence report to

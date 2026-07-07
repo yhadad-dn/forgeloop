@@ -16,6 +16,8 @@ TEST_COVERAGE:
     - <risk, or "none">
   coverage_numbers:
     module.path: 82.1
+  coverage_annotations:
+    module.path: undercounted_subprocess|none
   coverage_tooling: available|unavailable|not_run
   coverage_decision: measured_pass|measured_below_threshold_tester_run|unavailable_review_required|not_applicable_no_prod_changes
   test_coverage_tester_report:
@@ -28,6 +30,17 @@ TEST_COVERAGE:
     output_summary: <summary, or n/a>
     residual_risks: [<risk, or "none">]
 ```
+
+## Subprocess-Executed Code
+
+Tests that exercise code via subprocess (e.g. CLI integration tests invoking a
+script) are invisible to default coverage measurement. Before trusting a low
+number for such a module, either enable coverage's subprocess support
+(`COVERAGE_PROCESS_START` plus parallel mode) or set
+`coverage_annotations.<module.path>: undercounted_subprocess` alongside the
+measured figure — so reviewers neither treat an under-measured module as below
+threshold nor excuse a genuinely low one. Modules without subprocess
+undercounting carry `none`.
 
 ## Threshold Policy
 

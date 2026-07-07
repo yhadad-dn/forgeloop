@@ -174,6 +174,22 @@ check \
     "$SKILL_DIR/debug-loop.md" \
     "regression failure prevents convergence"
 
+# --- Behavior 7b: Codex verdicts accepted in contract or native form ---------
+check \
+    "review-gates.md accepts the Codex-native review verdict form" \
+    "$SKILL_DIR/debug-loop/review-gates.md" \
+    "[Nn]ative"
+
+check \
+    "review-gates.md: absence of output is never a pass" \
+    "$SKILL_DIR/debug-loop/review-gates.md" \
+    "never a pass"
+
+check \
+    "review-gates.md maps P1/P2 native findings to FAIL" \
+    "$SKILL_DIR/debug-loop/review-gates.md" \
+    "P1/P2"
+
 # --- Behavior 8: Bounded iterations -----------------------------------------
 check \
     "debug-loop.md: MAX_DEBUG_ITERATIONS = 5" \

@@ -26,3 +26,15 @@ FIX_BRIEF:
 ...
 ```
 
+## Verdict Acceptance
+
+`codex exec review` may replace the requested contract with its native summary
+format nondeterministically. Both forms are acceptable:
+
+- Contract form: first line `OVERALL: PASS | FAIL` plus `FIX_BRIEF`.
+- Native form: any P1/P2 finding maps to `OVERALL: FAIL` (FIX_BRIEF verbatim
+  from the findings); an explicit no-blocking statement maps to `OVERALL: PASS`.
+
+Never treat absence of output — or output with neither findings nor an explicit
+no-blocking statement — as a pass.
+

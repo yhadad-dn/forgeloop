@@ -14,6 +14,10 @@ Non-blocking findings:
   Stage B: {items or none}
   Codex: {items or none}
 
+Carried-forward findings:
+  {each DEFERRED finding with its follow-up task file under
+   .claude/plans/followups/, or none — DEFERRED findings may not be dropped}
+
 Source truth:
   captured_at_utc: {timestamp}
   authoritative: {sources}

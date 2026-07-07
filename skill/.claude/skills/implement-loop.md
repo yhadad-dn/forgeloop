@@ -184,8 +184,11 @@ Blocking findings produce a `FIX_BRIEF` and another loop iteration.
 
 Read `implement-loop/review-gates.md`.
 
-Invoke Codex through the shell CLI by default and require an exact `OVERALL: PASS` or
-`OVERALL: FAIL` verdict. A failed verdict produces a `FIX_BRIEF`.
+Invoke Codex through the shell CLI by default and accept a verdict in one of
+the two forms defined in `implement-loop/review-gates.md`: the exact
+`OVERALL: PASS`/`OVERALL: FAIL` contract, or the Codex-native review form
+(P1/P2 findings map to FAIL; an explicit no-blocking statement maps to PASS;
+silence is never a pass). A failed verdict produces a `FIX_BRIEF`.
 
 Codex availability or authentication errors are not passes. If your repo cannot use Codex,
 write an explicit local fallback policy before running the loop.
@@ -194,6 +197,10 @@ write an explicit local fallback policy before running the loop.
 
 When Stage B and Stage C pass, set `converged = true` and use
 `implement-loop/reports.md` for the user approval gate.
+
+Every `DEFERRED` finding must be fixed or emitted as a follow-up task file
+before convergence (see `implement-loop/review-gates.md`); the convergence
+report lists each one under "Carried-forward findings".
 
 Do not commit automatically.
 
