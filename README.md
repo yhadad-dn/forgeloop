@@ -269,6 +269,7 @@ silently treat an unavailable outer review as a pass.
   skills/plan-loop/*.md
   skills/debug-loop.md
   skills/debug-loop/*.md
+  skills/debug-loop/dap_client.py   # stdlib-only DAP debugger client (Stage 4)
   agents/developer.md
   agents/source-check.md
   agents/tester.md

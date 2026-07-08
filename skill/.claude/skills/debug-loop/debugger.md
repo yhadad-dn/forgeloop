@@ -1,8 +1,17 @@
 # Stage 4 Debugger Protocol
 
 Read during Stage 4 (root-cause trace) only. No other stage invokes the debugger.
-All debugger commands are issued programmatically through `scripts/dap_client.py`
-— there is never a human at a debug console.
+All debugger commands are issued programmatically through the DAP client that
+ships beside this protocol file — there is never a human at a debug console.
+
+**`{DAP_CLIENT}` resolution**: the client is `debug-loop/dap_client.py` in the
+same skills directory this file was read from. Resolve it once during
+pre-flight and substitute it in every command below:
+
+- installed to home: `~/.claude/skills/debug-loop/dap_client.py`
+- installed into a repo: `.claude/skills/debug-loop/dap_client.py`
+- inside the ForgeLoop repo: `skill/.claude/skills/debug-loop/dap_client.py`
+  (also reachable via the `scripts/dap_client.py` compatibility symlink)
 
 The debugger produces hard RED→GREEN proof of a hypothesis:
 
@@ -86,7 +95,7 @@ only exit code 1 (connection failure) does.
 2. Connect and run the session:
 
    ```bash
-   python3 scripts/dap_client.py \
+   python3 {DAP_CLIENT} \
      --host 127.0.0.1 --port {PORT} \
      --breakpoints {file}:{line}[,{file}:{line}...] \
      --output .claude/debug-reports/debugger-session-{N}-red.json \
@@ -143,7 +152,7 @@ failure_evidence: <exception type/message, or nonzero exit code>
    and run:
 
    ```bash
-   python3 scripts/dap_client.py \
+   python3 {DAP_CLIENT} \
      --host 127.0.0.1 --port {PORT} \
      --breakpoints {file}:{line} \
      --output .claude/debug-reports/debugger-session-{N}-green.json \

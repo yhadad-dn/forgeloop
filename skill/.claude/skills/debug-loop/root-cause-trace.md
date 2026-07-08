@@ -31,7 +31,8 @@ debugger; Stage 3 is never modified by it.
 
 - **Step 4.1 — RED session**: after pre-flight (`DEBUGGER_PREFLIGHT: READY`),
   launch the Stage 3 reproduction command (same cwd, env, args) under the
-  debugger and run `scripts/dap_client.py --mode red` with breakpoints at the
+  debugger and run the shipped DAP client (`debug-loop/dap_client.py`, resolved
+  per debugger.md's `{DAP_CLIENT}` rule) with `--mode red` and breakpoints at the
   hypothesized defect site. RED is confirmed only when the stop is reached
   (`BREAKPOINT_HIT` or `EXCEPTION_CAUGHT`) and the process fails. `NO_STOP`
   means the hypothesis site was never reached — revise the hypothesis

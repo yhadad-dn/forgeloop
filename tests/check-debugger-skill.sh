@@ -150,6 +150,38 @@ check \
     "$TMPL_DIR/debug-loop-report.md" \
     "debugger_session"
 
+# --- Check 14: DAP client ships inside the installable payload ------------------
+check \
+    "dap_client.py is part of the skill payload (skills/debug-loop/)" \
+    "$SKILL_DIR/debug-loop/dap_client.py" \
+    "class DAPSession"
+
+# --- Check 15: debugger.md invokes the shipped client, not a repo-only path -----
+check \
+    "debugger.md references the shipped debug-loop/dap_client.py" \
+    "$SKILL_DIR/debug-loop/debugger.md" \
+    "debug-loop/dap_client\.py"
+
+# --- Check 15b: repo-only invocation must not creep back into the commands ------
+check_absent \
+    "debugger.md does not invoke the repo-only scripts/dap_client.py path" \
+    "$SKILL_DIR/debug-loop/debugger.md" \
+    "python3 scripts/dap_client"
+
+# --- Check 16 (functional): installer delivers dap_client.py --------------------
+# Fresh target dir: install.sh's overwrite guard runs before its --dry-run
+# branch, so a stray .claude under a shared path would fail this spuriously.
+DRYRUN_TARGET="$(mktemp -d)"
+if bash "$REPO_ROOT/scripts/install.sh" --dry-run "$DRYRUN_TARGET" 2>/dev/null \
+        | grep -q "skills/debug-loop/dap_client\.py"; then
+    echo "PASS: install.sh --dry-run lists skills/debug-loop/dap_client.py"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL: install.sh --dry-run lists skills/debug-loop/dap_client.py"
+    FAIL=$((FAIL + 1))
+fi
+rmdir "$DRYRUN_TARGET" 2>/dev/null || true
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
