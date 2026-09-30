@@ -27,9 +27,10 @@ than fast code generation.
 The failure mode it targets is common in agentic coding: a model produces a confident
 implementation without grounding it in the right source, skips the regression test, or
 chooses a path through an ambiguous requirement without asking. ForgeLoop avoids relying
-on one model in isolation. Claude works inside a strict planning, implementation, or
-debugging loop; Codex acts as an independent outer reviewer. The loop iterates until the
-plan, code, tests, and review evidence converge.
+on review alone. Claude works inside a strict planning, implementation, or debugging
+loop; implemented code must then prove itself in a real CPU or GPU run, and debug
+reports get an independent Codex review. The loop iterates until the plan, code, tests,
+and run evidence converge.
 
 The human remains the authority for intent and tradeoffs. You define the sources of truth,
 constraints, and acceptance criteria. When requirements are ambiguous, sources conflict, or
@@ -38,8 +39,8 @@ a decision point is underspecified, ForgeLoop stops and asks instead of guessing
 ForgeLoop turns those steps into a repeatable loop:
 
 ```text
-source check -> TDD implementation -> coverage gate -> reviewer gate
-             -> Codex review -> repair plan -> approval gate
+source check -> TDD implementation -> coverage gate -> clean-code pass -> reviewer gate
+             -> CPU/GPU run proof -> repair plan -> approval gate
 ```
 
 It is designed for high-stakes repos where "looks good" is not enough.
@@ -48,10 +49,10 @@ It is designed for high-stakes repos where "looks good" is not enough.
 
 - **`plan-loop` skill**: a gated planning loop that validates requirements, maps source
   authority, forces user-only decision resolution, generates a complete plan, self-checks
-  it, passes it through internal and Codex review, and waits for approval before handing
-  off to `implement-loop`.
+  it, passes it through internal review, and waits for approval before handing off to
+  `implement-loop`. Every plan hands off a concrete `RUN_PROOF`.
 - **`implement-loop` skill**: a bounded TDD implementation loop with up to five repair
-  iterations.
+  iterations that only converges after a real CPU/GPU run proves the change works.
 - **`debug-loop` skill**: a gated bug investigation loop that validates symptoms,
   maps evidence authority, requires reproduction before hypothesis, requires trace-backed
   root cause before handoff, and produces a complete `implement-loop` task. v1 is
@@ -63,9 +64,16 @@ It is designed for high-stakes repos where "looks good" is not enough.
 - **Reliable-source check**: blocks implementation when the plan conflicts with the
   paper, spec, official docs, or repo contracts.
 - **Developer handoff contract**: requires RED, GREEN, full-suite, and coverage evidence.
+- **Clean-code pass**: a fresh-context `refactorer` agent simplifies the changed
+  production code before review, behavior-preserving (tests untouched, suite green),
+  with separate feature and refactor patches. Adapted from `code-simplification`
+  (addyosmani/agent-skills) and `code-simplifier` (Anthropic).
 - **Five reviewer roles**: correctness, security, performance, standards, and slop.
-- **Codex outer gate**: required by default, configurable only through explicit repo
-  policy.
+- **Run-proof gate**: `implement-loop` runs the task's `RUN_PROOF` command locally
+  (CPU) or inside a SLURM allocation via `cluster-loop` (GPU), and judges every pass
+  criterion against quoted log evidence.
+- **Codex outer gate (`debug-loop`)**: independent review of debug reports and
+  handoffs.
 - **Repair discipline**: failed review findings become scoped repair plans before code
   changes continue.
 - **Convergence reports**: clear approval gate before staging or committing.
@@ -191,8 +199,8 @@ Start from `templates/debug-loop-report.md` to see the required report format.
    placeholders, and signature consistency.
 
 7. **Stage 6: Reviewer Gate**  
-   Internal passes (completeness, traceability, consistency, feasibility, handoff),
-   then Codex review. Blocking findings enter the repair loop.
+   Internal passes (completeness, traceability, consistency, feasibility, handoff).
+   Blocking findings enter the repair loop.
 
 8. **Stage 7: Approval Gate**  
    Report the final plan path. Wait for explicit user approval before handing off to
@@ -211,11 +219,12 @@ Start from `templates/plan-loop-plan.md` to see the required plan format.
 
 ## The Implement Loop
 
-`implement-loop` follows six stages:
+`implement-loop` follows seven stages:
 
 1. **Stage 0: Load Task**  
    Resolve the task file or inline criteria and extract context, tests, verification,
-   and checklist.
+   run proof, and checklist. A missing `RUN_PROOF` stops the loop; a GPU proof needs an
+   active SLURM job (from the user or `/cluster-loop`).
 
 2. **Stage 0.5: Reliable-Source Check**  
    A read-only source-check pass compares the plan to authoritative sources and repo
@@ -225,16 +234,23 @@ Start from `templates/plan-loop-plan.md` to see the required plan format.
    Write failing tests, implement the smallest passing change, run the full suite, and
    report coverage.
 
-4. **Stage B: Reviewer Gate**  
+4. **Stage A.5: Clean-Code Pass**  
+   A fresh `refactorer` agent simplifies only the changed production files: one change
+   at a time, test files must stay byte-identical, the full suite must stay green, and
+   coverage must not drop. Failing changes are restored from a snapshot; source-mirroring
+   code, hot paths, and `simplify-ignore` blocks are left alone. Never fails the loop.
+
+5. **Stage B: Reviewer Gate**  
    Review the actual changed files with focused reviewers. Blocking findings produce a
    repair brief.
 
-5. **Stage C: Codex Gate**  
-   Run an outer review using Codex CLI. A failed verdict enters the repair loop.
-   If your repo cannot use Codex, explicitly edit the policy before treating the loop as
-   converged.
+6. **Stage C: Run-Proof Gate**  
+   Run the task's `RUN_PROOF` command for real — locally for CPU, via
+   `srun --jobid` inside the allocation for GPU (after checking the node sees the
+   current working tree). Every pass criterion needs quoted log evidence. A failed run
+   enters the repair loop; an environment error stops and asks the user.
 
-6. **Stage D: Approval Gate**  
+7. **Stage D: Approval Gate**  
    When all gates pass, ForgeLoop reports exactly what changed and waits for human
    approval before commit.
 
@@ -254,23 +270,25 @@ ForgeLoop is intentionally strict:
 
 - Claude Code or a compatible Claude workflow that can read `.claude/skills/`.
 - A repo with tests runnable from the command line.
-- Codex CLI for the default outer review gate.
+- For GPU run proofs: a SLURM cluster reachable through `cluster-loop`.
+- Codex CLI for the `debug-loop` outer review gate.
 
-If Codex CLI is unavailable, keep the loop's Stage C policy explicit for your team. Do not
-silently treat an unavailable outer review as a pass.
+If Codex CLI is unavailable, keep the `debug-loop` Stage 6b policy explicit for your team.
+Do not silently treat an unavailable outer review as a pass.
 
 ## What Gets Installed
 
 ```text
 .claude/
   skills/implement-loop.md
-  skills/implement-loop/*.md
+  skills/implement-loop/*.md       # includes run-proof.md (Stage C)
   skills/plan-loop.md
   skills/plan-loop/*.md
   skills/debug-loop.md
   skills/debug-loop/*.md
   skills/debug-loop/dap_client.py   # stdlib-only DAP debugger client (Stage 4)
   agents/developer.md
+  agents/refactorer.md
   agents/source-check.md
   agents/tester.md
   agents/reviewer-*.md
@@ -285,7 +303,8 @@ Adapt these repo-specific settings:
 - authoritative specs, papers, and official docs;
 - full-suite and targeted test commands;
 - forbidden generated artifact paths;
-- Codex model and command;
+- run-proof commands and pass criteria per task (and cluster access for GPU runs);
+- Codex model and command (`debug-loop` only);
 - coverage threshold;
 - reviewer notes for your domain.
 

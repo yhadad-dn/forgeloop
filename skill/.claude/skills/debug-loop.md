@@ -136,7 +136,7 @@ Set `root_cause_trace` only after returning `ROOT_CAUSE: TRACED`.
 Read `debug-loop/handoff-format.md`.
 
 Produce an `implement-loop` task file using the canonical schema: `CONTEXT`,
-`WHAT_TO_DO`, `TESTS`, `VERIFY`, and `CHECKLIST`.
+`WHAT_TO_DO`, `TESTS`, `VERIFY`, `RUN_PROOF`, and `CHECKLIST`.
 
 `debug-loop` does not stage or commit code. The handoff document is the
 deliverable.
@@ -153,7 +153,7 @@ Self-check before review:
 2. Root-cause trace cites at least one allowed evidence type (file/line, config,
    runtime evidence, dependency behavior, data shape, or debugger_session).
 3. `WHAT_TO_DO` is scoped to the traced root cause; no speculative changes.
-4. Handoff schema is complete: `CONTEXT`, `WHAT_TO_DO`, `TESTS`, `VERIFY`, `CHECKLIST`.
+4. Handoff schema is complete: `CONTEXT`, `WHAT_TO_DO`, `TESTS`, `VERIFY`, `RUN_PROOF`, `CHECKLIST`.
 5. No unresolved decisions remain.
 6. `TESTS` includes a regression test that would have caught the bug.
 

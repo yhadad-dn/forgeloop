@@ -32,6 +32,22 @@ check() {
     fi
 }
 
+
+check_absent() {
+    local desc="$1"
+    local file="$2"
+    local pattern="$3"
+    if [[ -f "$file" ]] && ! grep -qiE "$pattern" "$file"; then
+        echo "PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "FAIL: $desc"
+        echo "      file:    $file"
+        echo "      forbidden pattern: $pattern"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
 # --- codex-model-check.md: shared sub-doc exists and is complete -------------
 check \
     "codex-model-check.md exists with CODEX_MODEL output field" \
@@ -58,37 +74,29 @@ check \
     "$SKILL_DIR/codex-model-check.md" \
     "codex exec"
 
-# --- Each loop main skill records CODEX_MODEL at startup --------------------
-check \
-    "implement-loop.md records CODEX_MODEL in loop state" \
-    "$SKILL_DIR/implement-loop.md" \
-    "CODEX_MODEL"
-
-check \
-    "plan-loop.md records CODEX_MODEL in loop state" \
-    "$SKILL_DIR/plan-loop.md" \
-    "CODEX_MODEL"
-
+# --- debug-loop keeps the Codex gate and records CODEX_MODEL ---------------
 check \
     "debug-loop.md records CODEX_MODEL in loop state" \
     "$SKILL_DIR/debug-loop.md" \
-    "CODEX_MODEL"
-
-# --- Each loop's review-gates.md uses CODEX_MODEL variable in the command ----
-check \
-    "implement-loop/review-gates.md uses CODEX_MODEL in Codex command" \
-    "$SKILL_DIR/implement-loop/review-gates.md" \
-    "CODEX_MODEL"
-
-check \
-    "plan-loop/review-gates.md uses CODEX_MODEL in Codex command" \
-    "$SKILL_DIR/plan-loop/review-gates.md" \
     "CODEX_MODEL"
 
 check \
     "debug-loop/review-gates.md uses CODEX_MODEL in Codex command" \
     "$SKILL_DIR/debug-loop/review-gates.md" \
     "CODEX_MODEL"
+
+# --- implement-loop and plan-loop have no Codex stage -------------------------
+for f in implement-loop.md implement-loop/review-gates.md plan-loop/review-gates.md; do
+    check_absent \
+        "$f has no Codex model check or Codex gate" \
+        "$SKILL_DIR/$f" \
+        "CODEX_MODEL|codex exec|codex-model-check"
+done
+
+check_absent \
+    "plan-loop.md has no Codex model check or Codex gate" \
+    "$SKILL_DIR/plan-loop.md" \
+    "CODEX_MODEL|codex exec|codex-model-check|Stage 6b"
 
 # --- Summary -----------------------------------------------------------------
 echo ""

@@ -115,11 +115,25 @@ autonomous choices permitted.}
 {commands}
 ```
 
+**Run proof** (see `implement-loop/run-proof.md`):
+```text
+RUN_PROOF:
+  device: {cpu | gpu | not_applicable}
+  command: {exact command}
+  cwd: {directory}
+  timeout: {HH:MM:SS}
+  pass_criteria:
+    - exit code 0
+    - {change-specific observable signal derived from Success Criteria}
+  exercises: {acceptance criteria / code paths the run covers}
+```
+
 **Checklist**:
 - [ ] Source check completed using sources listed in this plan
 - [ ] RED evidence captured
 - [ ] GREEN evidence captured
 - [ ] Coverage evidence reported
+- [ ] Clean-code pass completed (tests untouched, suite green)
 - [ ] Reviewer gate passed
-- [ ] Codex gate passed or repo policy fallback applied
+- [ ] Run-proof gate passed on the declared CPU/GPU target
 - [ ] User approved commit

@@ -2,7 +2,8 @@
 name: implement-loop
 description: >
   Automated TDD implementation loop with reliable-source checks, bounded repair
-  planning, reviewer gates, Codex CLI review, and coverage evidence.
+  planning, a behavior-preserving clean-code pass, reviewer gates, coverage evidence,
+  and a real CPU/GPU run-proof gate.
   Invoke with: /implement-loop <task-file-or-description>.
 ---
 
@@ -14,21 +15,23 @@ Implement one task through a disciplined loop:
 
 ```text
 load task -> source check -> TDD implementation -> coverage gate
-          -> reviewer gate -> Codex gate -> approval
+          -> clean-code pass -> reviewer gate -> run-proof gate (CPU/GPU) -> approval
 ```
 
-Both review gates must pass before convergence. After the first iteration, every failed
+The reviewer gate and the run-proof gate must both pass before convergence. After the first iteration, every failed
 gate becomes a bounded repair plan before another implementation pass. Stop after
 `MAX_ITERATIONS`.
 
 Reference files:
 
-- `codex-model-check.md`
 - `implement-loop/source-check.md`
 - `implement-loop/stage-r.md`
 - `implement-loop/coverage-gate.md`
+- `implement-loop/clean-code.md`
 - `implement-loop/review-gates.md`
+- `implement-loop/run-proof.md`
 - `implement-loop/reports.md`
+- `cluster-loop/srun-inside.md` (GPU runs)
 
 ## Inputs
 
@@ -45,6 +48,7 @@ Extract or derive:
 - `TESTS`
 - `VERIFY`
 - `CHECKLIST`
+- `RUN_PROOF` (see `implement-loop/run-proof.md`)
 
 ## Constants
 
@@ -58,7 +62,11 @@ Extract or derive:
 2. Extract context, work items, tests, verification, and checklist.
 3. Warn on missing dependencies mentioned by the task; block only when the task says the
    dependency is mandatory.
-4. Run Stage 0.5 before implementation.
+4. Validate `RUN_PROOF` per `implement-loop/run-proof.md`. If it is missing or
+   incomplete, stop and ask the user for it — never invent a command or criteria.
+   For `device: gpu`, get an active SLURM job ID from the user or offer
+   `/cluster-loop` to allocate one; record it as `RUN_JOBID`.
+5. Run Stage 0.5 before implementation.
 
 Initialize:
 
@@ -70,17 +78,9 @@ fix_source = ""
 repair_plan = ""
 source_check = ""
 iteration_log = []
-CODEX_MODEL = ""
-CODEX_BASE_COMMAND = ""
+run_proof = {}
+RUN_JOBID = ""
 ```
-
-## Stage 0.1: Codex Model Check
-
-Read `codex-model-check.md`.
-
-Follow the protocol in `codex-model-check.md`: probe `gpt-5.5` locally first; only
-run a web-search sub-agent if the probe fails. Record `CODEX_MODEL` and
-`CODEX_BASE_COMMAND` in loop state. Use these values at Stage C.
 
 ## Stage 0.5: Reliable-Source Check
 
@@ -103,10 +103,12 @@ while iteration < MAX_ITERATIONS and not converged:
     if iteration > 1:
         Stage R: build repair plan from latest fix brief
     Stage A: developer implementation
+    Stage A.5: clean-code pass (never fails the loop)
     Stage B: reviewer gate
         if blocking findings: continue
-    Stage C: Codex gate
-        if fail: continue
+    Stage C: run-proof gate
+        if FAIL: continue
+        if ERROR: stop and ask the user
     Stage D: converged
 ```
 
@@ -164,6 +166,20 @@ Require:
 - GREEN evidence showing the relevant suite passed;
 - TEST_COVERAGE with coverage decision and residual risks.
 
+## Stage A.5: Clean-Code Pass
+
+Read `implement-loop/clean-code.md`.
+
+After Stage A reports `DONE`, snapshot the working tree and run the `refactorer`
+agent (fresh context) over the changed production files only — on later iterations,
+only the files the repair touched. It simplifies without changing behavior: test files
+must stay byte-identical, the full suite must pass with Stage A's counts, and coverage
+must not drop. Any change that breaks a check is restored from the snapshot. Code that
+mirrors an authoritative source, hot paths, and `simplify-ignore` blocks are left alone.
+
+Stage A.5 never fails the loop. Record `CLEAN_CODE_RESULT` and hand the refactor patch
+to Stage B.
+
 ## Stage B: Reviewer Gate
 
 Read `implement-loop/review-gates.md`.
@@ -180,18 +196,20 @@ the captured diff with focused reviewers:
 
 Blocking findings produce a `FIX_BRIEF` and another loop iteration.
 
-## Stage C: Codex CLI Gate
+## Stage C: Run-Proof Gate
 
-Read `implement-loop/review-gates.md`.
+Read `implement-loop/run-proof.md`.
 
-Invoke Codex through the shell CLI by default and accept a verdict in one of
-the two forms defined in `implement-loop/review-gates.md`: the exact
-`OVERALL: PASS`/`OVERALL: FAIL` contract, or the Codex-native review form
-(P1/P2 findings map to FAIL; an explicit no-blocking statement maps to PASS;
-silence is never a pass). A failed verdict produces a `FIX_BRIEF`.
+Run the task's `RUN_PROOF` command for real: locally for `device: cpu`, inside the
+SLURM allocation `RUN_JOBID` via `srun --jobid` for `device: gpu`. Before a GPU run,
+confirm the allocation is `R`, a GPU is visible, and the node sees the current
+working tree. Capture the full log and judge every `pass_criteria` entry with quoted
+log evidence.
 
-Codex availability or authentication errors are not passes. If your repo cannot use Codex,
-write an explicit local fallback policy before running the loop.
+- `FAIL` (code ran, criteria not met) produces a `FIX_BRIEF` and another iteration.
+- `ERROR` (allocation, environment, or tree-sync problem) is never a pass and never a
+  reason to change code: stop, ask the user, then rerun the same proof.
+- Changing the proof command or loosening its criteria is `PLAN_AMENDMENT_REQUIRED`.
 
 ## Stage D: Decision
 
@@ -217,13 +235,19 @@ Record one entry per iteration:
   test_coverage: present|missing
   coverage_decision: measured_pass|measured_below_threshold_tester_run|unavailable_review_required|not_applicable_no_prod_changes
   suite_result: pass|fail
+  clean_code_status: applied|no_changes|reverted_all|skipped_no_prod_changes
+  clean_code_applied_count: N
+  clean_code_reverted_count: N
+  clean_code_refactor_patch: <path or n/a>
   stage_b_overall: PASS|FAIL
   stage_b_blocking_count: N
   stage_b_nonblocking_count: N
-  codex_overall: PASS|FAIL|ERROR
-  codex_error_reason: <if ERROR>
-  codex_command: <exact command or n/a>
-  codex_verdict_path: <path or n/a>
+  run_proof_overall: PASS|FAIL|ERROR|not_applicable
+  run_proof_device: cpu|gpu|not_applicable
+  run_proof_target: local|job <RUN_JOBID> on <nodelist>|n/a
+  run_proof_exit_code: <n or n/a>
+  run_proof_log_path: <path or n/a>
+  run_proof_error_reason: <if ERROR>
   fix_source: stage_b|stage_c|none
   converged: true|false
 ```

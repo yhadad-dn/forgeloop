@@ -33,6 +33,22 @@ check() {
     fi
 }
 
+
+check_absent() {
+    local desc="$1"
+    local file="$2"
+    local pattern="$3"
+    if [[ -f "$file" ]] && ! grep -qiE "$pattern" "$file"; then
+        echo "PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "FAIL: $desc"
+        echo "      file:    $file"
+        echo "      forbidden pattern: $pattern"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
 # --- Required files exist (verified via meaningful content pattern) -----------
 check \
     "implement-loop.md exists" \
@@ -48,6 +64,11 @@ check \
     "implement-loop/reports.md exists" \
     "$SKILL_DIR/implement-loop/reports.md" \
     "Convergence Report"
+
+check \
+    "implement-loop/run-proof.md exists" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "RUN_PROOF"
 
 check \
     "implement-loop/coverage-gate.md exists" \
@@ -70,46 +91,61 @@ check \
     "$SKILL_DIR/implement-loop/reports.md" \
     "Carried-forward findings"
 
-# --- Behavior 2: Codex verdict dual-format acceptance -------------------------
+# --- Behavior 2: Stage C is a real CPU/GPU run proof, not Codex --------------
 check \
-    "review-gates.md accepts the Codex-native review verdict form" \
-    "$SKILL_DIR/implement-loop/review-gates.md" \
-    "[Nn]ative"
+    "implement-loop/run-proof.md exists with RUN_PROOF_RESULT output" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "RUN_PROOF_RESULT"
 
 check \
-    "review-gates.md maps P1/P2 native findings to FAIL" \
-    "$SKILL_DIR/implement-loop/review-gates.md" \
-    "P1/P2"
+    "implement-loop.md Stage C is the run-proof gate" \
+    "$SKILL_DIR/implement-loop.md" \
+    "Stage C: Run-Proof Gate"
 
 check \
-    "review-gates.md maps an explicit no-blocking statement to PASS" \
-    "$SKILL_DIR/implement-loop/review-gates.md" \
-    "no-blocking statement"
+    "implement-loop.md blocks at Stage 0 when RUN_PROOF is missing" \
+    "$SKILL_DIR/implement-loop.md" \
+    "never invent a command"
 
 check \
-    "review-gates.md: absence of output is never a pass" \
-    "$SKILL_DIR/implement-loop/review-gates.md" \
+    "run-proof.md routes GPU runs through a SLURM allocation" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "srun --jobid"
+
+check \
+    "run-proof.md verifies the node sees the current working tree" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "sha256sum -c"
+
+check \
+    "run-proof.md requires quoted log evidence per criterion" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "quote the log line"
+
+check \
+    "run-proof.md: ERROR is never a pass" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
     "never a pass"
 
 check \
-    "review-gates.md: ambiguous output retries once then errors" \
+    "run-proof.md: weakening the proof is a plan amendment" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "PLAN_AMENDMENT_REQUIRED"
+
+check \
+    "reports.md convergence report includes run-proof evidence" \
+    "$SKILL_DIR/implement-loop/reports.md" \
+    "Run proof:"
+
+check \
+    "task-plan.md template has a RUN_PROOF section" \
+    "$TMPL_DIR/task-plan.md" \
+    "RUN_PROOF:"
+
+check_absent \
+    "implement-loop/review-gates.md has no Codex gate" \
     "$SKILL_DIR/implement-loop/review-gates.md" \
-    "[Rr]etry once"
-
-check \
-    "implement-loop.md Stage C defers to the two accepted verdict forms" \
-    "$SKILL_DIR/implement-loop.md" \
-    "P1/P2"
-
-check \
-    "codex-review-prompt.md documents verdict acceptance for both forms" \
-    "$TMPL_DIR/codex-review-prompt.md" \
-    "[Nn]ative"
-
-check \
-    "codex-review-prompt.md pins the P1/P2-to-FAIL mapping" \
-    "$TMPL_DIR/codex-review-prompt.md" \
-    "P1/P2"
+    "codex"
 
 # --- Behavior 3: Reviewer fan-out is proportional to the diff ------------------
 check \
@@ -132,6 +168,67 @@ check \
     "coverage-gate.md schema has a coverage_annotations slot" \
     "$SKILL_DIR/implement-loop/coverage-gate.md" \
     "coverage_annotations"
+
+# --- Behavior 5: Stage A.5 clean-code pass before reviewers --------------------
+check \
+    "implement-loop.md defines Stage A.5 clean-code pass" \
+    "$SKILL_DIR/implement-loop.md" \
+    "Stage A.5: Clean-Code Pass"
+
+check \
+    "implement-loop.md main loop runs A.5 before Stage B" \
+    "$SKILL_DIR/implement-loop.md" \
+    "Stage A.5: clean-code pass \\(never fails the loop\\)"
+
+check \
+    "clean-code.md requires test files to stay byte-identical" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    "sha256sum -c"
+
+check \
+    "clean-code.md snapshots without staging (throwaway index)" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    "GIT_INDEX_FILE"
+
+check \
+    "clean-code.md restores failing changes from the snapshot" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    "git restore --source"
+
+check \
+    "clean-code.md protects source-mirroring code" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    "mirrors an authoritative source"
+
+check \
+    "clean-code.md honors simplify-ignore markers" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    "simplify-ignore-start"
+
+check \
+    "clean-code.md emits separate feature and refactor patches" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    "refactor.patch"
+
+check \
+    "refactorer agent exists and never edits tests" \
+    "$REPO_ROOT/skill/.claude/agents/refactorer.md" \
+    "Never edit test files"
+
+check \
+    "refactorer agent credits its upstream sources" \
+    "$REPO_ROOT/skill/.claude/agents/refactorer.md" \
+    "addyosmani/agent-skills"
+
+check \
+    "reports.md convergence report includes the clean-code pass" \
+    "$SKILL_DIR/implement-loop/reports.md" \
+    "Clean-code pass:"
+
+check \
+    "review-gates.md hands the refactor patch to reviewers" \
+    "$SKILL_DIR/implement-loop/review-gates.md" \
+    "CLEAN_CODE_RESULT"
 
 # --- Summary -------------------------------------------------------------------
 echo ""

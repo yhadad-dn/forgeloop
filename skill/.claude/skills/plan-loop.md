@@ -24,7 +24,6 @@ established. No approval is granted while decisions remain unresolved.
 
 Reference files:
 
-- `codex-model-check.md`
 - `plan-loop/requirements-validation.md`
 - `plan-loop/source-authority.md`
 - `plan-loop/plan-format.md`
@@ -59,17 +58,7 @@ requirements_validated = false
 sources_established = false
 decisions_resolved = false
 plan_path = ""
-CODEX_MODEL = ""
-CODEX_BASE_COMMAND = ""
 ```
-
-## Stage 0.1: Codex Model Check
-
-Read `codex-model-check.md`.
-
-Follow the protocol in `codex-model-check.md`: probe `gpt-5.5` locally first; only
-run a web-search sub-agent if the probe fails. Record `CODEX_MODEL` and
-`CODEX_BASE_COMMAND` in loop state. Use these values at Stage 6b.
 
 ## Stage 1: Requirements Validation
 
@@ -147,8 +136,9 @@ check is failing.
 Read `plan-loop/review-gates.md`.
 
 Run internal reviewer passes (completeness, traceability, consistency, feasibility,
-handoff), then a Codex review pass. A failed verdict enters the repair loop. Stop after
-`MAX_REPAIR_ITERATIONS`.
+handoff). Blocking findings enter the repair loop. Stop after `MAX_REPAIR_ITERATIONS`.
+There is no Codex review in `plan-loop`; the running code is proven later by the
+`implement-loop` run-proof gate.
 
 ## Stage 7: Approval Gate
 
@@ -190,12 +180,8 @@ Record one entry per repair iteration:
   plan_path: <path>
   stage_5_checks: all_pass|partial_fail
   stage_5_failed_checks: [<list or none>]
-  stage_6a_internal_overall: PASS|FAIL
-  stage_6a_blocking_count: N
-  stage_6a_nonblocking_count: N
-  stage_6b_codex_overall: PASS|FAIL|ERROR
-  stage_6b_codex_error_reason: <if ERROR>
-  stage_6b_codex_command: <exact command or n/a>
-  stage_6b_codex_verdict_path: <path or n/a>
+  stage_6_internal_overall: PASS|FAIL
+  stage_6_blocking_count: N
+  stage_6_nonblocking_count: N
   converged: true|false
 ```

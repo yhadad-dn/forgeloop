@@ -12,7 +12,6 @@ Stage C: PASS
 
 Non-blocking findings:
   Stage B: {items or none}
-  Codex: {items or none}
 
 Carried-forward findings:
   {each DEFERRED finding with its follow-up task file under
@@ -27,6 +26,25 @@ Coverage:
   decision: {coverage_decision}
   changed production modules: {modules or none}
   tester report: {summary}
+
+Clean-code pass:
+  status: {applied | no_changes | reverted_all | skipped_no_prod_changes}
+  applied: {count, one line per change}
+  reverted: {changes restored from the snapshot, or none}
+  flagged, not applied: {judgment calls left for the user, or none}
+  feature patch: {.claude/clean-code/<task>-iter<N>-feature.patch}
+  refactor patch: {.claude/clean-code/<task>-iter<N>-refactor.patch}
+  (commit feature and refactor separately if you want split history)
+
+Run proof:
+  device: {cpu | gpu | not_applicable}
+  target: {local | job <RUN_JOBID> on <nodelist>}
+  command: {exact command}
+  exit_code: {n}
+  duration: {HH:MM:SS}
+  log: {.claude/run-proofs/<task>-iter<N>.log}
+  criteria:
+    {each pass criterion with its quoted log evidence}
 
 VERIFY:
 {verification commands}
@@ -51,8 +69,8 @@ Write when the loop cannot converge:
 
 ## Iteration Log
 
-| # | Stage A change | Stage B | Stage C | Converged? |
-|---|---|---|---|
+| # | Stage A change | Stage B | Stage C (run proof) | Converged? |
+|---|---|---|---|---|
 {rows}
 
 ## Persistent Blockers

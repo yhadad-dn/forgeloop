@@ -13,7 +13,9 @@ Collect the following in one batch — do not ask piecemeal:
    constraints?
 4. **Success criteria**: How will you know the plan succeeded? What would make you reject
    the implementation?
-5. **Known risks**: What might make this plan fail or need revision?
+5. **Run proof**: What real run proves the finished work — CPU or GPU, which command,
+   and what observable result (metric, output, threshold) counts as success?
+6. **Known risks**: What might make this plan fail or need revision?
 
 Do not ask follow-up questions that the user's answers already cover. If an answer is
 ambiguous, ask one targeted clarifying question per ambiguity in a second pass.
@@ -30,6 +32,10 @@ REQUIREMENTS_VALIDATION:
     - <item, or "none">
   success_criteria:
     - <item>
+  run_proof:
+    device: <cpu | gpu | not_applicable>
+    command: <command, or "to be defined in plan">
+    pass_signal: <observable result>
   known_risks:
     - <item, or "none">
   user_answers_summary: <verbatim summary of user answers>

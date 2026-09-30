@@ -109,13 +109,28 @@ Tests to write:
 {repro command to confirm the original symptom is gone}
 ```
 
+### RUN_PROOF
+
+```text
+RUN_PROOF:
+  device: {cpu | gpu}
+  command: {the Stage 3 reproduction command, or the real workload that showed the symptom}
+  cwd: {directory}
+  timeout: {HH:MM:SS}
+  pass_criteria:
+    - exit code 0
+    - {the original symptom is absent — the observable signal that was wrong in RED}
+  exercises: {root-cause code path}
+```
+
 ### CHECKLIST
 
 - [ ] Source check completed using evidence sources in this report
 - [ ] RED evidence was present before fix
 - [ ] GREEN evidence captured after fix
 - [ ] Coverage evidence reported
+- [ ] Clean-code pass completed (tests untouched, suite green)
 - [ ] Regression tests committed alongside fix
 - [ ] Reviewer gate passed
-- [ ] Codex gate passed or repo policy fallback applied
+- [ ] Run-proof gate passed on the declared CPU/GPU target
 - [ ] User approved commit

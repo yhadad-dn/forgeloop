@@ -1,11 +1,12 @@
 # Codex CLI Setup
 
-ForgeLoop's Codex gate runs at the end of each loop (Stage C in `implement-loop`,
-Stage 6b in `plan-loop` and `debug-loop`).
+ForgeLoop's Codex gate runs only in `debug-loop` (Stage 6b). `implement-loop` proves
+its work with a real CPU/GPU run instead (`implement-loop/run-proof.md`), and
+`plan-loop` relies on its internal reviewer gate.
 
 ## Model Verification
 
-Each loop runs a Codex model check sub-agent at startup (Stage 0.1) that searches for
+`debug-loop` runs a Codex model check sub-agent at startup (Stage 0.1) that searches for
 the current recommended Codex CLI model and stores it in `CODEX_MODEL`. The gate
 command then uses `${CODEX_MODEL}` rather than a hard-coded model name:
 

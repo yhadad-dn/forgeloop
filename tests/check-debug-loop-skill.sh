@@ -219,6 +219,11 @@ check \
     "VERIFY"
 
 check \
+    "handoff-format.md — RUN_PROOF field" \
+    "$SKILL_DIR/debug-loop/handoff-format.md" \
+    "RUN_PROOF:"
+
+check \
     "handoff-format.md — CHECKLIST field" \
     "$SKILL_DIR/debug-loop/handoff-format.md" \
     "CHECKLIST"
@@ -244,6 +249,11 @@ check \
     "debug-loop-report.md — VERIFY field" \
     "$TMPL_DIR/debug-loop-report.md" \
     "VERIFY"
+
+check \
+    "debug-loop-report.md — RUN_PROOF field" \
+    "$TMPL_DIR/debug-loop-report.md" \
+    "RUN_PROOF:"
 
 check \
     "debug-loop-report.md — CHECKLIST field" \

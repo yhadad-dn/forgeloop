@@ -33,6 +33,22 @@ check() {
     fi
 }
 
+
+check_absent() {
+    local desc="$1"
+    local file="$2"
+    local pattern="$3"
+    if [[ -f "$file" ]] && ! grep -qiE "$pattern" "$file"; then
+        echo "PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "FAIL: $desc"
+        echo "      file:    $file"
+        echo "      forbidden pattern: $pattern"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
 # --- Behavior 1: Requirements validation runs before plan generation ----------
 check \
     "Stage 4 may only run after Stage 1 (requirements validated first)" \
@@ -124,9 +140,9 @@ check \
     "Reviewer gate passed"
 
 check \
-    "plan-format.md — Codex gate passed checklist item" \
+    "plan-format.md — Run-proof gate passed checklist item" \
     "$SKILL_DIR/plan-loop/plan-format.md" \
-    "Codex gate passed"
+    "Run-proof gate passed"
 
 check \
     "plan-format.md — User approved commit checklist item" \
@@ -180,9 +196,9 @@ check \
     "Reviewer gate passed"
 
 check \
-    "plan-loop-plan.md — Codex gate passed checklist item" \
+    "plan-loop-plan.md — Run-proof gate passed checklist item" \
     "$TMPL_DIR/plan-loop-plan.md" \
-    "Codex gate passed"
+    "Run-proof gate passed"
 
 check \
     "plan-loop-plan.md — User approved commit checklist item" \
@@ -200,21 +216,31 @@ check \
     "$SKILL_DIR/plan-loop/review-gates.md" \
     "Stage 6"
 
-# --- Codex verdicts accepted in contract or native form ----------------------
-check \
-    "plan-loop/review-gates.md accepts the Codex-native review verdict form" \
+# --- No Codex stage; handoff carries a RUN_PROOF ------------------------------
+check_absent \
+    "plan-loop/review-gates.md has no Codex gate" \
     "$SKILL_DIR/plan-loop/review-gates.md" \
-    "[Nn]ative"
+    "codex"
 
 check \
-    "plan-loop/review-gates.md: absence of output is never a pass" \
-    "$SKILL_DIR/plan-loop/review-gates.md" \
-    "never a pass"
+    "plan-format.md handoff includes RUN_PROOF" \
+    "$SKILL_DIR/plan-loop/plan-format.md" \
+    "RUN_PROOF:"
 
 check \
-    "plan-loop/review-gates.md maps P1/P2 native findings to FAIL" \
+    "plan-loop-plan.md handoff includes RUN_PROOF" \
+    "$TMPL_DIR/plan-loop-plan.md" \
+    "RUN_PROOF:"
+
+check \
+    "plan-loop/review-gates.md handoff reviewer checks RUN_PROOF" \
     "$SKILL_DIR/plan-loop/review-gates.md" \
-    "P1/P2"
+    "RUN_PROOF"
+
+check \
+    "requirements-validation.md asks for the run proof" \
+    "$SKILL_DIR/plan-loop/requirements-validation.md" \
+    "run_proof:"
 
 # --- Summary -----------------------------------------------------------------
 echo ""

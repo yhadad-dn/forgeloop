@@ -1,6 +1,6 @@
 # Plan Review Gates
 
-## Stage 6a: Internal Plan Reviewer Gate
+## Stage 6: Internal Plan Reviewer Gate
 
 Review the generated plan document (not code) from five angles:
 
@@ -10,107 +10,25 @@ Review the generated plan document (not code) from five angles:
 | traceability | Every design decision cites a source, a requirement, or an explicit user decision |
 | consistency | All function/class signatures are consistent across plan sections |
 | feasibility | No dependency cycles; no missing prerequisite tasks; constraints are respected |
-| handoff | `implement-loop Handoff` section is complete, specific, and actionable |
+| handoff | `implement-loop Handoff` section is complete, specific, and actionable, including a `RUN_PROOF` whose device, command, and pass criteria are concrete |
 
 Classify each finding:
 
 - `BLOCKING`: missing requirement coverage, untraceable design decision, broken or
-  incomplete handoff, unresolved decision remaining in the plan, inconsistent signatures.
+  incomplete handoff (including a missing or vague `RUN_PROOF`), unresolved decision remaining in the plan, inconsistent signatures.
 - `NON_BLOCKING`: style, minor clarity improvement, suggestion.
 
-Do not proceed to Stage 6b (Codex) until Stage 6a returns no blocking findings.
-
-## Stage 6b: Codex Gate
-
-Run an independent Codex review of the plan after Stage 6a passes. This gate is required
-by default. If your repo cannot use Codex, document an explicit fallback policy before
-running `plan-loop`; do not silently treat Codex as optional.
-
-Prompt contract:
-
-```text
-OVERALL: PASS | FAIL
-BLOCKING_FINDINGS:
-  - <severity>: <section> — <issue> — <required fix>
-NON_BLOCKING_FINDINGS:
-  - <severity>: <section> — <issue>
-CHECKLIST_RESULTS:
-  - Check N: PASS | FAIL — <reason>
-FIX_BRIEF:
-  - <exact change to the plan, or "none">
-```
-
-Suggested command:
-
-```bash
-codex exec review \
-  -m "${CODEX_MODEL}" \
-  --output-last-message ".claude/codex_verdicts/plan_verdict_iter${ITER}.md" \
-  - < /tmp/codex_plan_prompt_iter${ITER}.txt
-```
-
-`CODEX_MODEL` is set in Stage 0.1 of the loop by the Codex model check sub-agent.
-See `codex-model-check.md` for the verification protocol and fallback behavior.
-
-Verdict handling — accept a verdict in either of two forms:
-
-1. **Contract form**: first line is `OVERALL: PASS` or `OVERALL: FAIL`, with a
-   `FIX_BRIEF` section.
-2. **Codex-native review form** (`codex exec review` post-processes output into
-   its own summary nondeterministically): map any P1/P2 finding to
-   `OVERALL: FAIL` with `FIX_BRIEF` taken verbatim from the findings; map an
-   explicit no-blocking statement (e.g. "No blocking issues were found") to
-   `OVERALL: PASS`.
-
-Safety rules:
-
-- Absence of output — or output with neither findings nor an explicit
-  no-blocking statement — is never a pass. Retry once, then treat as
-  `codex_overall = ERROR`.
-- Treat unavailable CLI, authentication failure, unsupported model, or denied approval
-  as `codex_overall = ERROR`.
-- If retry also errors, write a divergence report to
-  `.claude/plans/divergence-reports/`.
-
-## Codex Prompt Template for Plan Review
-
-```text
-Review this plan against the stated requirements and source authority map.
-Return exactly:
-
-OVERALL: PASS | FAIL
-BLOCKING_FINDINGS:
-  - <severity>: <section> — <issue> — <required fix>
-NON_BLOCKING_FINDINGS:
-  - <severity>: <section> — <issue>
-CHECKLIST_RESULTS:
-  - REQ coverage: PASS | FAIL — <reason>
-  - Source traceability: PASS | FAIL — <reason>
-  - Unresolved decisions: PASS | FAIL — <reason>
-  - Placeholder scan: PASS | FAIL — <reason>
-  - Handoff completeness: PASS | FAIL — <reason>
-FIX_BRIEF:
-  - <exact plan section change, or "none">
-
-=== REQUIREMENTS ===
-...
-
-=== SOURCE MAP ===
-...
-
-=== PLAN ===
-...
-```
+Stage 6 passes when this internal review returns no blocking findings.
 
 ## Repair Loop
 
-When Stage 6a or 6b returns blocking findings:
+When Stage 6 returns blocking findings:
 
 1. List every blocking finding verbatim.
 2. Map each finding to the plan section it affects.
 3. Revise only the affected sections. Do not touch unrelated sections.
 4. Re-run Stage 5 self-check.
-5. Re-run Stage 6a and Stage 6b.
+5. Re-run Stage 6.
 
 If the loop exhausts `MAX_REPAIR_ITERATIONS` without converging, write a divergence
 report and stop.

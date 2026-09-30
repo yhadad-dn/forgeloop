@@ -1,8 +1,8 @@
 # Stage 5: Debug Handoff Format
 
 The debug handoff is an `implement-loop` task file using the canonical task schema.
-All five sections — `CONTEXT`, `WHAT_TO_DO`, `TESTS`, `VERIFY`, and `CHECKLIST` —
-are required. Omitting any section blocks Stage 6 self-check.
+All six sections — `CONTEXT`, `WHAT_TO_DO`, `TESTS`, `VERIFY`, `RUN_PROOF`, and
+`CHECKLIST` — are required. Omitting any section blocks Stage 6 self-check.
 
 ---
 
@@ -50,15 +50,30 @@ Tests to write:
 {repro command to confirm the original symptom is gone}
 ```
 
+## RUN_PROOF
+
+```text
+RUN_PROOF:
+  device: {cpu | gpu}
+  command: {the Stage 3 reproduction command, or the real workload that showed the symptom}
+  cwd: {directory}
+  timeout: {HH:MM:SS}
+  pass_criteria:
+    - exit code 0
+    - {the original symptom is absent — the observable signal that was wrong in RED}
+  exercises: {root-cause code path}
+```
+
 ## CHECKLIST
 
 - [ ] Source check completed using evidence sources in this report
 - [ ] RED evidence was present before fix
 - [ ] GREEN evidence captured after fix
 - [ ] Coverage evidence reported
+- [ ] Clean-code pass completed (tests untouched, suite green)
 - [ ] Regression tests committed alongside fix
 - [ ] Reviewer gate passed
-- [ ] Codex gate passed or repo policy fallback applied
+- [ ] Run-proof gate passed on the declared CPU/GPU target
 - [ ] User approved commit
 ````
 
@@ -74,5 +89,8 @@ Tests to write:
   the fix. "Add tests" is not sufficient — test names and what they verify are required.
 - **VERIFY** must include the full-suite command in addition to targeted commands.
   A targeted test passing alone is not convergence evidence.
+- **RUN_PROOF** must name the device and a pass criterion tied to the original
+  symptom, so `implement-loop` Stage C proves the fix on a real run (GPU runs go
+  through `cluster-loop`).
 - **CHECKLIST** must include the regression test item. An implement-loop run that
   omits regression tests is not complete.
