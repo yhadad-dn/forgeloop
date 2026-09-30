@@ -17,7 +17,7 @@ codex exec review \
   - < /tmp/codex_prompt_iter${ITER}.txt
 ```
 
-See `skill/.claude/skills/codex-model-check.md` for the full verification protocol,
+See `skills/codex-model-check/SKILL.md` for the full verification protocol,
 fallback behavior, and how to handle an unavailable sub-agent.
 
 ## If Codex Is Unavailable

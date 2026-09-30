@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILL_DIR="$REPO_ROOT/skill/.claude/skills"
+SKILL_DIR="$REPO_ROOT/skills"
 TMPL_DIR="$REPO_ROOT/templates"
 
 PASS=0
@@ -110,14 +110,14 @@ check \
 
 # --- Check 10: debug-loop.md references the debugger sub-file ------------------
 check \
-    "debug-loop.md references debug-loop/debugger.md" \
-    "$SKILL_DIR/debug-loop.md" \
-    "debug-loop/debugger\.md"
+    "debug-loop SKILL.md references debugger.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
+    "\`debugger\.md\`"
 
 # --- Check 11: v2 wording — stale v1 phrase removed ----------------------------
 check_absent \
     "debug-loop.md no longer contains stale v1 phrase 'does not edit code'" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "does not edit code"
 
 # --- Check 11b: no predictable /tmp exit-code paths in the launch guidance -----
@@ -158,9 +158,9 @@ check \
 
 # --- Check 15: debugger.md invokes the shipped client, not a repo-only path -----
 check \
-    "debugger.md references the shipped debug-loop/dap_client.py" \
+    "debugger.md references the shipped skills/debug-loop/dap_client.py" \
     "$SKILL_DIR/debug-loop/debugger.md" \
-    "debug-loop/dap_client\.py"
+    "skills/debug-loop/dap_client\.py"
 
 # --- Check 15b: repo-only invocation must not creep back into the commands ------
 check_absent \
@@ -172,8 +172,8 @@ check_absent \
 # Fresh target dir: install.sh's overwrite guard runs before its --dry-run
 # branch, so a stray .claude under a shared path would fail this spuriously.
 DRYRUN_TARGET="$(mktemp -d)"
-if bash "$REPO_ROOT/scripts/install.sh" --dry-run "$DRYRUN_TARGET" 2>/dev/null \
-        | grep -q "skills/debug-loop/dap_client\.py"; then
+DRYRUN_OUT="$(bash "$REPO_ROOT/scripts/install.sh" --dry-run "$DRYRUN_TARGET" 2>/dev/null || true)"
+if grep -q "skills/debug-loop/dap_client\.py" <<<"$DRYRUN_OUT"; then
     echo "PASS: install.sh --dry-run lists skills/debug-loop/dap_client.py"
     PASS=$((PASS + 1))
 else

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "forgeloop",
+  "description": "ForgeLoop gated workflow skills.",
+  "owner": {
+    "name": "Yakir Hadad",
+    "url": "https://github.com/yhadad-dn"
+  },
+  "plugins": [
+    {
+      "name": "forgeloop",
+      "version": "0.6.0",
+      "source": "./",
+      "description": "Gated planning, implementation, debugging, and cluster workflows with reviewer gates and real CPU/GPU run proofs.",
+      "homepage": "https://github.com/yhadad-dn/forgeloop",
+      "license": "MIT",
+      "keywords": ["workflow", "tdd", "planning", "debugging", "slurm"]
+    }
+  ]
+}

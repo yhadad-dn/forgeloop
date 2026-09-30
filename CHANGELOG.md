@@ -2,6 +2,23 @@
 
 ## 0.6.0
 
+- **ForgeLoop is now a Claude Code plugin.** `.claude-plugin/plugin.json` plus a
+  single-plugin `marketplace.json` at the repo root:
+  `/plugin marketplace add yhadad-dn/forgeloop`, `/plugin install forgeloop@forgeloop`.
+  Skills become `/forgeloop:<name>`, agents `forgeloop:<agent>`.
+- Layout: `skill/.claude/skills/<name>.md` → `skills/<name>/SKILL.md` (sub-files beside
+  it), `skill/.claude/agents/` → `agents/`, CLAUDE/AGENTS templates → `templates/`.
+  File references are relative to each skill's directory.
+- Repo settings move to `.claude/forgeloop.md` (template: `templates/forgeloop.md`),
+  read by every loop before Stage 0; plugin files stay read-only.
+- `cluster-loop` node map is configurable (`FORGELOOP_CLUSTER_NODE_MAP`,
+  `.claude/forgeloop.md`, default `~/.claude/forgeloop/cluster_node_map.md`) instead of
+  a hard-coded personal path.
+- `debugger.md` resolves `dap_client.py` via `${CLAUDE_PLUGIN_ROOT}` for plugin installs.
+- `install.sh` copies the plugin layout into `.claude/` for non-plugin installs.
+- New `tests/check-plugin.sh`: manifest validation, version agreement, skill/agent
+  names, stale-layout scan, and resolution of every skill-relative file reference.
+
 - Added **Stage A.5: Clean-Code Pass** to `implement-loop`, between the developer pass
   and the reviewer gate. New `refactorer` agent and `implement-loop/clean-code.md`,
   adapted from `code-simplification` (addyosmani/agent-skills, MIT) and

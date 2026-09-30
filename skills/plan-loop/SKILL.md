@@ -22,12 +22,12 @@ load request -> requirements validation -> source authority map
 No plan generation begins until requirements are validated and source authority is
 established. No approval is granted while decisions remain unresolved.
 
-Reference files:
+Reference files (relative to this skill's directory):
 
-- `plan-loop/requirements-validation.md`
-- `plan-loop/source-authority.md`
-- `plan-loop/plan-format.md`
-- `plan-loop/review-gates.md`
+- `requirements-validation.md`
+- `source-authority.md`
+- `plan-format.md`
+- `review-gates.md`
 
 ## Inputs
 
@@ -36,6 +36,18 @@ The request can be:
 - a file path;
 - a short identifier that resolves to a request file;
 - inline description.
+
+## Paths, Agents, and Repo Configuration
+
+- File references in this skill are relative to this skill's directory; `../<skill>/`
+  points at a sibling ForgeLoop skill.
+- ForgeLoop agents (`developer`, `refactorer`, `source-check`, `tester`,
+  `reviewer-*`) are named `forgeloop:<agent>` when ForgeLoop is installed as a plugin,
+  and `<agent>` when installed into a repo's `.claude/`.
+- Paths like `.claude/plans/` refer to the target repo, never the plugin directory.
+- Before Stage 0, read `.claude/forgeloop.md` in the target repo if it exists. Its
+  values (test commands, coverage threshold, test-file patterns, forbidden paths,
+  Codex policy) override the defaults in this skill's files.
 
 ## Constants
 
@@ -62,7 +74,7 @@ plan_path = ""
 
 ## Stage 1: Requirements Validation
 
-Read `plan-loop/requirements-validation.md`.
+Read `requirements-validation.md`.
 
 Ask the user concise targeted questions to establish the goal, non-goals, constraints,
 and success criteria. Collect all questions in one batch.
@@ -73,7 +85,7 @@ Set `requirements_validated = true` only after returning `REQUIREMENTS_VALIDATIO
 
 ## Stage 2: Reliable-Source Map
 
-Read `plan-loop/source-authority.md`.
+Read `source-authority.md`.
 
 List all authoritative sources, rank their authority, and mark context-only sources.
 
@@ -111,7 +123,7 @@ Use only:
 **Do not discover or rely on new external sources during this stage.** If a new source
 seems necessary, stop and return to Stage 2 for user-reviewed approval of that source.
 
-Generate the plan using the format in `plan-loop/plan-format.md`. Write the plan file
+Generate the plan using the format in `plan-format.md`. Write the plan file
 and record its path in `plan_path`.
 
 ## Stage 5: Plan Self-Check
@@ -133,7 +145,7 @@ check is failing.
 
 ## Stage 6: Reviewer Gate
 
-Read `plan-loop/review-gates.md`.
+Read `review-gates.md`.
 
 Run internal reviewer passes (completeness, traceability, consistency, feasibility,
 handoff). Blocking findings enter the repair loop. Stop after `MAX_REPAIR_ITERATIONS`.

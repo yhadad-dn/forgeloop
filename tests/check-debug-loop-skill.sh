@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILL_DIR="$REPO_ROOT/skill/.claude/skills"
+SKILL_DIR="$REPO_ROOT/skills"
 TMPL_DIR="$REPO_ROOT/templates"
 
 PASS=0
@@ -36,7 +36,7 @@ check() {
 # --- Required files exist (verified via meaningful content pattern) -----------
 check \
     "debug-loop.md exists" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "MAX_DEBUG_ITERATIONS"
 
 check \
@@ -77,7 +77,7 @@ check \
 # --- Behavior 1: Hypothesis blocked until RED evidence exists ----------------
 check \
     "debug-loop.md blocks hypothesis generation until RED evidence exists" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "Do not generate hypotheses until RED evidence exists"
 
 check \
@@ -88,13 +88,13 @@ check \
 # --- Behavior 2: v2 prohibits staging/committing code ------------------------
 check \
     "debug-loop.md prohibits staging or committing code" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "does not stage or commit"
 
 # --- Behavior 3: Root-cause trace required before fix handoff ----------------
 check \
     "debug-loop.md blocks handoff until root-cause trace evidence exists" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "Do not generate the handoff until root-cause trace evidence exists"
 
 check \
@@ -130,9 +130,9 @@ check \
 
 # --- Behavior 4a: Stage 4 debugger sub-system integration --------------------
 check \
-    "debug-loop.md references debug-loop/debugger.md" \
-    "$SKILL_DIR/debug-loop.md" \
-    "debug-loop/debugger\.md"
+    "debug-loop SKILL.md references debugger.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
+    "\`debugger\.md\`"
 
 check \
     "evidence-map.md includes debugger_session evidence" \
@@ -165,13 +165,13 @@ check \
 # --- Behavior 6: Unresolved decisions block approval ------------------------
 check \
     "debug-loop.md blocks approval when unresolved decisions remain" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "may not be presented for approval"
 
 # --- Behavior 7: Regression failure prevents convergence --------------------
 check \
     "debug-loop.md: regression failure prevents convergence" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "regression failure prevents convergence"
 
 # --- Behavior 7b: Codex verdicts accepted in contract or native form ---------
@@ -193,7 +193,7 @@ check \
 # --- Behavior 8: Bounded iterations -----------------------------------------
 check \
     "debug-loop.md: MAX_DEBUG_ITERATIONS = 5" \
-    "$SKILL_DIR/debug-loop.md" \
+    "$SKILL_DIR/debug-loop/SKILL.md" \
     "MAX_DEBUG_ITERATIONS = 5"
 
 # --- Behavior 9: implement-loop handoff schema in handoff-format.md ----------

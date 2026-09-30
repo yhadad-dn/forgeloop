@@ -80,43 +80,58 @@ It is designed for high-stakes repos where "looks good" is not enough.
 
 ## Repo Layout
 
+ForgeLoop is a Claude Code plugin; the repo root is the plugin and its own marketplace.
+
 ```text
 forgeloop/
-  skill/.claude/                  # installable Claude payload
-    skills/implement-loop.md
-    skills/implement-loop/
-    skills/plan-loop.md
-    skills/plan-loop/
-    skills/debug-loop.md
-    skills/debug-loop/
-    skills/cluster-loop.md
-    skills/cluster-loop/
-    agents/
-    AGENTS.template.md
-    CLAUDE.template.md
-  templates/                      # copyable task/report templates
-  tests/                          # skill-text enforcement checks
-  docs/                           # adaptation and setup notes
+  .claude-plugin/
+    plugin.json                   # plugin manifest (name, version)
+    marketplace.json              # single-plugin marketplace pointing at ./
+  skills/                         # one directory per skill
+    implement-loop/SKILL.md       # + clean-code.md, run-proof.md, review-gates.md, ...
+    plan-loop/SKILL.md
+    debug-loop/SKILL.md           # + debugger.md, dap_client.py, ...
+    cluster-loop/SKILL.md
+    codex-model-check/SKILL.md
+  agents/                         # developer, refactorer, source-check, tester, reviewer-*
+  templates/                      # task/report templates, forgeloop.md repo config,
+                                  # AGENTS/CLAUDE templates
+  tests/                          # skill-text and packaging checks
+  docs/                           # installation, configuration, adaptation
   examples/                       # tiny examples for learning the loop
-  scripts/install.sh              # copies the payload into another repo
+  scripts/install.sh              # non-plugin install into a repo's .claude/
 ```
 
 ## Quick Start
 
-From a target repo:
+Install the plugin in Claude Code:
+
+```text
+/plugin marketplace add yhadad-dn/forgeloop
+/plugin install forgeloop@forgeloop
+```
+
+Then add repo settings (test commands, coverage threshold, forbidden paths):
 
 ```bash
-git clone https://github.com/<your-user>/forgeloop.git /tmp/forgeloop
+mkdir -p .claude && cp <forgeloop>/templates/forgeloop.md .claude/forgeloop.md
+```
+
+Without the plugin system (or for Codex), copy the files into a repo instead:
+
+```bash
+git clone https://github.com/yhadad-dn/forgeloop.git /tmp/forgeloop
 /tmp/forgeloop/scripts/install.sh .
 ```
 
 The installer refuses to overwrite existing `.claude` files by default. Run with
-`--dry-run` first if you want to inspect what would be copied.
+`--dry-run` first if you want to inspect what would be copied. See
+`docs/installation.md` for details.
 
 Then ask Claude:
 
 ```text
-Use the implement-loop skill.
+/forgeloop:implement-loop
 
 Implement this task:
 <task file or acceptance criteria>
@@ -164,7 +179,7 @@ expectations, and verification commands. Start from `templates/task-plan.md`.
 Then ask Claude to debug first:
 
 ```text
-Use the debug-loop skill.
+/forgeloop:debug-loop
 
 Investigate this bug:
 <symptom description or bug report file>
@@ -209,7 +224,7 @@ Start from `templates/debug-loop-report.md` to see the required report format.
 Then ask Claude to plan first:
 
 ```text
-Use the plan-loop skill.
+/forgeloop:plan-loop
 
 Plan this feature:
 <description or request file>
@@ -268,7 +283,7 @@ ForgeLoop is intentionally strict:
 
 ## Requirements
 
-- Claude Code or a compatible Claude workflow that can read `.claude/skills/`.
+- Claude Code with plugin support, or any Claude workflow that can read `.claude/skills/`.
 - A repo with tests runnable from the command line.
 - For GPU run proofs: a SLURM cluster reachable through `cluster-loop`.
 - Codex CLI for the `debug-loop` outer review gate.
@@ -278,20 +293,22 @@ Do not silently treat an unavailable outer review as a pass.
 
 ## What Gets Installed
 
+As a plugin: everything under `skills/` and `agents/`, namespaced `forgeloop:`.
+With `install.sh`, the same files land in the repo:
+
 ```text
 .claude/
-  skills/implement-loop.md
-  skills/implement-loop/*.md       # includes run-proof.md (Stage C)
-  skills/plan-loop.md
-  skills/plan-loop/*.md
-  skills/debug-loop.md
-  skills/debug-loop/*.md
-  skills/debug-loop/dap_client.py   # stdlib-only DAP debugger client (Stage 4)
+  skills/implement-loop/            # SKILL.md, clean-code.md, run-proof.md, ...
+  skills/plan-loop/
+  skills/debug-loop/                # includes dap_client.py (Stage 4 debugger)
+  skills/cluster-loop/
+  skills/codex-model-check/
   agents/developer.md
   agents/refactorer.md
   agents/source-check.md
   agents/tester.md
   agents/reviewer-*.md
+  forgeloop.md                      # repo configuration
   AGENTS.template.md
   CLAUDE.template.md
 ```
@@ -319,15 +336,16 @@ large or high-risk changes.
 ForgeLoop is meant to grow:
 
 ```text
-skill/.claude/skills/
-  implement-loop.md
-  plan-loop.md
-  review-loop.md
-  debug-loop.md
+skills/
+  implement-loop/SKILL.md
+  plan-loop/SKILL.md
+  review-loop/SKILL.md
+  debug-loop/SKILL.md
 ```
 
-Keep each loop small, explicit, and gate-driven. Put reusable stage details in a sibling
-folder, just like `implement-loop/`.
+Keep each loop small, explicit, and gate-driven. Put reusable stage details next to
+`SKILL.md` in the skill's directory, just like `implement-loop/`, and reference them by
+relative path.
 
 ## Status
 

@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILL_DIR="$REPO_ROOT/skill/.claude/skills"
+SKILL_DIR="$REPO_ROOT/skills"
 TMPL_DIR="$REPO_ROOT/templates"
 
 PASS=0
@@ -36,7 +36,7 @@ check() {
 # --- Required files exist ----------------------------------------------------
 check \
     "cluster-loop.md exists with sub-command routing" \
-    "$SKILL_DIR/cluster-loop.md" \
+    "$SKILL_DIR/cluster-loop/SKILL.md" \
     "cluster-loop map"
 
 check \

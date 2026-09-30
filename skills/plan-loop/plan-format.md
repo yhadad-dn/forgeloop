@@ -131,7 +131,7 @@ def function_name(param: Type) -> ReturnType:
 {commands}
 ```
 
-**Run proof** (see `implement-loop/run-proof.md`):
+**Run proof** (see `../implement-loop/run-proof.md`):
 ```text
 RUN_PROOF:
   device: {cpu | gpu | not_applicable}

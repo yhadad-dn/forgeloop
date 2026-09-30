@@ -75,4 +75,4 @@ convergence report lists each one under "Carried-forward findings".
 
 After Stage B passes, run the task's `RUN_PROOF` on its CPU or GPU target. The full
 protocol — target setup, GPU pre-run checks, log capture, and PASS/FAIL/ERROR
-handling — is in `implement-loop/run-proof.md`.
+handling — is in `run-proof.md`.

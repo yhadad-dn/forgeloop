@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILL_DIR="$REPO_ROOT/skill/.claude/skills"
+SKILL_DIR="$REPO_ROOT/skills"
 TMPL_DIR="$REPO_ROOT/templates"
 
 PASS=0
@@ -52,7 +52,7 @@ check_absent() {
 # --- Behavior 1: Requirements validation runs before plan generation ----------
 check \
     "Stage 4 may only run after Stage 1 (requirements validated first)" \
-    "$SKILL_DIR/plan-loop.md" \
+    "$SKILL_DIR/plan-loop/SKILL.md" \
     "May only run after Stage 1"
 
 check \
@@ -68,7 +68,7 @@ check \
 
 check \
     "plan-loop.md forbids new-source discovery in Stage 4" \
-    "$SKILL_DIR/plan-loop.md" \
+    "$SKILL_DIR/plan-loop/SKILL.md" \
     "Do not discover or rely on new"
 
 # --- Behavior 3: User-only conflict resolution -------------------------------
@@ -79,7 +79,7 @@ check \
 
 check \
     "plan-loop.md prohibits autonomous decisions in Stage 3" \
-    "$SKILL_DIR/plan-loop.md" \
+    "$SKILL_DIR/plan-loop/SKILL.md" \
     "Do not make any autonomous decisions"
 
 # --- Behavior 4: No approval while unresolved decisions remain ---------------
@@ -90,7 +90,7 @@ check \
 
 check \
     "plan-loop.md blocks approval when unresolved decisions remain" \
-    "$SKILL_DIR/plan-loop.md" \
+    "$SKILL_DIR/plan-loop/SKILL.md" \
     "may not be presented for approval"
 
 # --- Behavior 5: Complete implement-loop handoff schema in plan-format.md ----
@@ -208,7 +208,7 @@ check \
 # --- Approval gate and supporting files --------------------------------------
 check \
     "plan-loop.md references implement-loop at the approval gate" \
-    "$SKILL_DIR/plan-loop.md" \
+    "$SKILL_DIR/plan-loop/SKILL.md" \
     "implement-loop"
 
 check \

@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKILL_DIR="$REPO_ROOT/skill/.claude/skills"
+SKILL_DIR="$REPO_ROOT/skills"
 TMPL_DIR="$REPO_ROOT/templates"
 
 PASS=0
@@ -52,7 +52,7 @@ check_absent() {
 # --- Required files exist (verified via meaningful content pattern) -----------
 check \
     "implement-loop.md exists" \
-    "$SKILL_DIR/implement-loop.md" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
     "MAX_ITERATIONS"
 
 check \
@@ -99,12 +99,12 @@ check \
 
 check \
     "implement-loop.md Stage C is the run-proof gate" \
-    "$SKILL_DIR/implement-loop.md" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
     "Stage C: Run-Proof Gate"
 
 check \
     "implement-loop.md blocks at Stage 0 when RUN_PROOF is missing" \
-    "$SKILL_DIR/implement-loop.md" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
     "never invent a command"
 
 check \
@@ -172,12 +172,12 @@ check \
 # --- Behavior 5: Stage A.5 clean-code pass before reviewers --------------------
 check \
     "implement-loop.md defines Stage A.5 clean-code pass" \
-    "$SKILL_DIR/implement-loop.md" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
     "Stage A.5: Clean-Code Pass"
 
 check \
     "implement-loop.md main loop runs A.5 before Stage B" \
-    "$SKILL_DIR/implement-loop.md" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
     "Stage A.5: clean-code pass \\(never fails the loop\\)"
 
 check \
@@ -212,12 +212,12 @@ check \
 
 check \
     "refactorer agent exists and never edits tests" \
-    "$REPO_ROOT/skill/.claude/agents/refactorer.md" \
+    "$REPO_ROOT/agents/refactorer.md" \
     "Never edit test files"
 
 check \
     "refactorer agent credits its upstream sources" \
-    "$REPO_ROOT/skill/.claude/agents/refactorer.md" \
+    "$REPO_ROOT/agents/refactorer.md" \
     "addyosmani/agent-skills"
 
 check \

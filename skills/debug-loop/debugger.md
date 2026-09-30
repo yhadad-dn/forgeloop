@@ -4,13 +4,13 @@ Read during Stage 4 (root-cause trace) only. No other stage invokes the debugger
 All debugger commands are issued programmatically through the DAP client that
 ships beside this protocol file — there is never a human at a debug console.
 
-**`{DAP_CLIENT}` resolution**: the client is `debug-loop/dap_client.py` in the
-same skills directory this file was read from. Resolve it once during
-pre-flight and substitute it in every command below:
+**`{DAP_CLIENT}` resolution**: the client is `dap_client.py` in this skill's
+directory (the directory this file was read from). Resolve it to an absolute path
+once during pre-flight and substitute it in every command below:
 
-- installed to home: `~/.claude/skills/debug-loop/dap_client.py`
+- installed as a plugin: `${CLAUDE_PLUGIN_ROOT}/skills/debug-loop/dap_client.py`
 - installed into a repo: `.claude/skills/debug-loop/dap_client.py`
-- inside the ForgeLoop repo: `skill/.claude/skills/debug-loop/dap_client.py`
+- inside the ForgeLoop repo: `skills/debug-loop/dap_client.py`
   (also reachable via the `scripts/dap_client.py` compatibility symlink)
 
 The debugger produces hard RED→GREEN proof of a hypothesis:

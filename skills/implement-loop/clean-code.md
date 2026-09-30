@@ -12,7 +12,7 @@ Stage A.5 cannot fail the loop. At worst it leaves the Stage A code unchanged.
 
 ## 1. Scope
 
-Build the changed file list exactly as Stage B does (`implement-loop/review-gates.md`),
+Build the changed file list exactly as Stage B does (`review-gates.md`),
 then keep only production files:
 
 - exclude tests and fixtures (repo test patterns, e.g. `tests/`, `test_*.py`,

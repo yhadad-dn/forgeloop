@@ -59,7 +59,7 @@ and note the gap in the report.
 
 Read the cluster node map from:
 ```
-~/.claude/projects/-home-dn-research-KV-Compacting/memory/cluster_node_map.md
+${NODE_MAP}   # resolved per the Node map constant in SKILL.md
 ```
 
 Parse the node table. For each node extract: `hostname`, `ip`, `auth_type`,

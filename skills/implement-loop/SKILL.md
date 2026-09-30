@@ -22,16 +22,16 @@ The reviewer gate and the run-proof gate must both pass before convergence. Afte
 gate becomes a bounded repair plan before another implementation pass. Stop after
 `MAX_ITERATIONS`.
 
-Reference files:
+Reference files (relative to this skill's directory):
 
-- `implement-loop/source-check.md`
-- `implement-loop/stage-r.md`
-- `implement-loop/coverage-gate.md`
-- `implement-loop/clean-code.md`
-- `implement-loop/review-gates.md`
-- `implement-loop/run-proof.md`
-- `implement-loop/reports.md`
-- `cluster-loop/srun-inside.md` (GPU runs)
+- `source-check.md`
+- `stage-r.md`
+- `coverage-gate.md`
+- `clean-code.md`
+- `review-gates.md`
+- `run-proof.md`
+- `reports.md`
+- `../cluster-loop/srun-inside.md` (GPU runs)
 
 ## Inputs
 
@@ -48,7 +48,19 @@ Extract or derive:
 - `TESTS`
 - `VERIFY`
 - `CHECKLIST`
-- `RUN_PROOF` (see `implement-loop/run-proof.md`)
+- `RUN_PROOF` (see `run-proof.md`)
+
+## Paths, Agents, and Repo Configuration
+
+- File references in this skill are relative to this skill's directory; `../<skill>/`
+  points at a sibling ForgeLoop skill.
+- ForgeLoop agents (`developer`, `refactorer`, `source-check`, `tester`,
+  `reviewer-*`) are named `forgeloop:<agent>` when ForgeLoop is installed as a plugin,
+  and `<agent>` when installed into a repo's `.claude/`.
+- Paths like `.claude/plans/` refer to the target repo, never the plugin directory.
+- Before Stage 0, read `.claude/forgeloop.md` in the target repo if it exists. Its
+  values (test commands, coverage threshold, test-file patterns, forbidden paths,
+  Codex policy) override the defaults in this skill's files.
 
 ## Constants
 
@@ -62,7 +74,7 @@ Extract or derive:
 2. Extract context, work items, tests, verification, and checklist.
 3. Warn on missing dependencies mentioned by the task; block only when the task says the
    dependency is mandatory.
-4. Validate `RUN_PROOF` per `implement-loop/run-proof.md`. If it is missing or
+4. Validate `RUN_PROOF` per `run-proof.md`. If it is missing or
    incomplete, stop and ask the user for it — never invent a command or criteria.
    For `device: gpu`, get an active SLURM job ID from the user or offer
    `/cluster-loop` to allocate one; record it as `RUN_JOBID`.
@@ -84,7 +96,7 @@ RUN_JOBID = ""
 
 ## Stage 0.5: Reliable-Source Check
 
-Read `implement-loop/source-check.md`.
+Read `source-check.md`.
 
 Run a read-only source-check pass comparing the task against authoritative sources:
 
@@ -114,7 +126,7 @@ while iteration < MAX_ITERATIONS and not converged:
 
 ## Stage R: Repair Plan
 
-Read `implement-loop/stage-r.md`.
+Read `stage-r.md`.
 
 Convert the latest failed review's `FIX_BRIEF` into an in-scope repair plan. Preserve all
 blocking findings. If the repair requires scope expansion or conflicts with the task,
@@ -134,7 +146,7 @@ Reliable-source check:
 TDD protocol:
 1. RED: write tests from TESTS, run targeted pytest, and show expected failures.
 2. GREEN: implement the minimum code and run the full suite.
-3. COVERAGE: report TEST_COVERAGE using implement-loop/coverage-gate.md.
+3. COVERAGE: report TEST_COVERAGE using coverage-gate.md.
 
 Tests to write:
 [TESTS verbatim]
@@ -168,7 +180,7 @@ Require:
 
 ## Stage A.5: Clean-Code Pass
 
-Read `implement-loop/clean-code.md`.
+Read `clean-code.md`.
 
 After Stage A reports `DONE`, snapshot the working tree and run the `refactorer`
 agent (fresh context) over the changed production files only — on later iterations,
@@ -182,7 +194,7 @@ to Stage B.
 
 ## Stage B: Reviewer Gate
 
-Read `implement-loop/review-gates.md`.
+Read `review-gates.md`.
 
 Use the authoritative changed file list from git, include untracked files, reject forbidden
 result/artifact paths configured by the repo, run the coverage threshold gate, then review
@@ -198,7 +210,7 @@ Blocking findings produce a `FIX_BRIEF` and another loop iteration.
 
 ## Stage C: Run-Proof Gate
 
-Read `implement-loop/run-proof.md`.
+Read `run-proof.md`.
 
 Run the task's `RUN_PROOF` command for real: locally for `device: cpu`, inside the
 SLURM allocation `RUN_JOBID` via `srun --jobid` for `device: gpu`. Before a GPU run,
@@ -214,10 +226,10 @@ log evidence.
 ## Stage D: Decision
 
 When Stage B and Stage C pass, set `converged = true` and use
-`implement-loop/reports.md` for the user approval gate.
+`reports.md` for the user approval gate.
 
 Every `DEFERRED` finding must be fixed or emitted as a follow-up task file
-before convergence (see `implement-loop/review-gates.md`); the convergence
+before convergence (see `review-gates.md`); the convergence
 report lists each one under "Carried-forward findings".
 
 Do not commit automatically.

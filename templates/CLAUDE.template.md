@@ -2,7 +2,9 @@
 
 Copy to `CLAUDE.md` and adapt.
 
-Use ForgeLoop for all planning, implementation, debugging, and cluster work:
+Use ForgeLoop for all planning, implementation, debugging, and cluster work. With the
+plugin install, the skills are `/forgeloop:<name>`; with `install.sh` they are `/<name>`.
+Repo settings live in `.claude/forgeloop.md`.
 
 - For SLURM cluster allocation, invoke `/cluster-loop` to survey the allocation map,
   get node recommendations, and allocate via salloc inside a tmux session.

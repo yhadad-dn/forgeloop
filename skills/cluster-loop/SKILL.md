@@ -28,18 +28,32 @@ pre-flight -> allocation map -> recommendation -> approval gate
 
 ## Reference Files
 
-- `codex-model-check.md`
-- `cluster-loop/preflight.md`
-- `cluster-loop/allocation-map.md`
-- `cluster-loop/node-recommender.md`
-- `cluster-loop/allocate.md`
-- `cluster-loop/srun-inside.md`
+- `../codex-model-check/SKILL.md`
+- `preflight.md`
+- `allocation-map.md`
+- `node-recommender.md`
+- `allocate.md`
+- `srun-inside.md`
+
+## Paths, Agents, and Repo Configuration
+
+- File references in this skill are relative to this skill's directory; `../<skill>/`
+  points at a sibling ForgeLoop skill.
+- ForgeLoop agents (`developer`, `refactorer`, `source-check`, `tester`,
+  `reviewer-*`) are named `forgeloop:<agent>` when ForgeLoop is installed as a plugin,
+  and `<agent>` when installed into a repo's `.claude/`.
+- Paths like `.claude/plans/` refer to the target repo, never the plugin directory.
+- Before Stage 0, read `.claude/forgeloop.md` in the target repo if it exists. Its
+  values (node map path, subnet router, partitions) override the defaults below.
 
 ## Constants
 
-- **Node map**: `~/.claude/projects/-home-dn-research-KV-Compacting/memory/cluster_node_map.md`
+- **Node map**: `$FORGELOOP_CLUSTER_NODE_MAP` if set, else the `node_map` value in
+  `.claude/forgeloop.md`, else `~/.claude/forgeloop/cluster_node_map.md`. If none
+  exists, stop and ask the user for the node map location.
 - **Reports**: `.claude/cluster-reports/`
-- **Tailscale subnet router**: `100.109.84.43`
+- **Tailscale subnet router**: `100.109.84.43` (DriveNets default; override with
+  `subnet_router` in `.claude/forgeloop.md`)
 - **tmux session name**: `cluster-<node>-<YYYYMMDD-HHMM>`
 
 ## Stage 0: Load Request
@@ -64,15 +78,15 @@ CODEX_BASE_COMMAND = ""
 
 ## Stage 0.1: Codex Model Check
 
-Read `codex-model-check.md`.
+Read `../codex-model-check/SKILL.md`.
 
-Follow the protocol in `codex-model-check.md`: probe `gpt-5.5` locally first; only
+Follow the protocol in `../codex-model-check/SKILL.md`: probe `gpt-5.5` locally first; only
 run a web-search sub-agent if the probe fails. Record `CODEX_MODEL` and
 `CODEX_BASE_COMMAND` in loop state.
 
 ## Stage 1: Pre-flight
 
-Read `cluster-loop/preflight.md`.
+Read `preflight.md`.
 
 Verify Tailscale VPN, SSH access to a key-auth node, tmux installation, and SSHPASS
 availability. Abort with a clear message on any hard failure. Do not proceed to Stage 2
@@ -80,14 +94,14 @@ until pre-flight passes.
 
 ## Stage 2: Allocation Map
 
-Read `cluster-loop/allocation-map.md`.
+Read `allocation-map.md`.
 
 Survey every node via `sinfo`, `squeue`, and SSH `ps aux`. Build a full per-node
 status table. Display it to the user before any further action.
 
 ## Stage 3: Recommendation
 
-Read `cluster-loop/node-recommender.md`.
+Read `node-recommender.md`.
 
 Score each node on three criteria: SLURM idle, no squeue entries, clean ps.
 Present a sorted recommendation table with explicit reasoning per node.
@@ -105,7 +119,7 @@ Ask the user to confirm before any allocation:
 
 ## Stage 5: Allocate
 
-Read `cluster-loop/allocate.md`.
+Read `allocate.md`.
 
 Create a named tmux session and run `salloc --no-shell` inside it. Poll until the
 job reaches state `R`. Handle race conditions by re-scanning automatically.
@@ -124,7 +138,7 @@ When allocation is confirmed active, display:
 
 ## Stage 7: srun (on request)
 
-Read `cluster-loop/srun-inside.md`.
+Read `srun-inside.md`.
 
 Run the user's command inside the active salloc via `--jobid`. Verify the job is
 still in state `R` before issuing srun.

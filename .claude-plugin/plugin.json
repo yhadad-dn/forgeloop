@@ -1,0 +1,22 @@
+{
+  "name": "forgeloop",
+  "version": "0.6.0",
+  "description": "Gated workflow skills for agentic planning, implementation, debugging, and SLURM cluster work: source checks, TDD, clean-code pass, reviewer gates, real CPU/GPU run proofs, and explicit approval before commit.",
+  "author": {
+    "name": "Yakir Hadad",
+    "email": "yhadad@drivenets.com"
+  },
+  "homepage": "https://github.com/yhadad-dn/forgeloop",
+  "repository": "https://github.com/yhadad-dn/forgeloop",
+  "license": "MIT",
+  "keywords": [
+    "workflow",
+    "tdd",
+    "planning",
+    "debugging",
+    "code-review",
+    "refactoring",
+    "slurm",
+    "gpu"
+  ]
+}

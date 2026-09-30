@@ -1,1 +1,1 @@
-../skill/.claude/skills/debug-loop/dap_client.py
+../skills/debug-loop/dap_client.py

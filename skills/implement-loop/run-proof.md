@@ -73,7 +73,7 @@ cd ${CWD} && timeout ${TIMEOUT_SECONDS} bash -lc '${COMMAND}' \
   > .claude/run-proofs/<task>-iter${ITER}.log 2>&1; echo "exit=$?"
 ```
 
-GPU (per `cluster-loop/srun-inside.md`; no `--pty` — output must be captured):
+GPU (per `../cluster-loop/srun-inside.md`; no `--pty` — output must be captured):
 
 ```bash
 timeout ${TIMEOUT_SECONDS} srun --jobid=${RUN_JOBID} --chdir=${CWD} bash -lc '${COMMAND}' \

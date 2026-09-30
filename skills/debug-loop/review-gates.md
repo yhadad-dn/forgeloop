@@ -59,7 +59,7 @@ codex exec review \
 ```
 
 `CODEX_MODEL` is set in Stage 0.1 of the loop by the Codex model check sub-agent.
-See `codex-model-check.md` for the verification protocol and fallback behavior.
+See `../codex-model-check/SKILL.md` for the verification protocol and fallback behavior.
 
 Verdict handling — accept a verdict in either of two forms:
 

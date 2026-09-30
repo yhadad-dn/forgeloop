@@ -26,16 +26,16 @@ until root-cause trace evidence exists. `debug-loop` v2 may write a temporary
 proof-of-fix copy during Stage 4, but it does not stage or commit code. Fixes
 happen only through an approved `implement-loop` handoff.
 
-Reference files:
+Reference files (relative to this skill's directory):
 
-- `codex-model-check.md`
-- `debug-loop/symptom-validation.md`
-- `debug-loop/evidence-map.md`
-- `debug-loop/reproduction-gate.md`
-- `debug-loop/root-cause-trace.md`
-- `debug-loop/debugger.md`
-- `debug-loop/handoff-format.md`
-- `debug-loop/review-gates.md`
+- `../codex-model-check/SKILL.md`
+- `symptom-validation.md`
+- `evidence-map.md`
+- `reproduction-gate.md`
+- `root-cause-trace.md`
+- `debugger.md`
+- `handoff-format.md`
+- `review-gates.md`
 
 ## Inputs
 
@@ -44,6 +44,18 @@ The symptom can be:
 - a file path;
 - a short identifier that resolves to a bug report;
 - inline description.
+
+## Paths, Agents, and Repo Configuration
+
+- File references in this skill are relative to this skill's directory; `../<skill>/`
+  points at a sibling ForgeLoop skill.
+- ForgeLoop agents (`developer`, `refactorer`, `source-check`, `tester`,
+  `reviewer-*`) are named `forgeloop:<agent>` when ForgeLoop is installed as a plugin,
+  and `<agent>` when installed into a repo's `.claude/`.
+- Paths like `.claude/plans/` refer to the target repo, never the plugin directory.
+- Before Stage 0, read `.claude/forgeloop.md` in the target repo if it exists. Its
+  values (test commands, coverage threshold, test-file patterns, forbidden paths,
+  Codex policy) override the defaults in this skill's files.
 
 ## Constants
 
@@ -73,15 +85,15 @@ CODEX_BASE_COMMAND = ""
 
 ## Stage 0.1: Codex Model Check
 
-Read `codex-model-check.md`.
+Read `../codex-model-check/SKILL.md`.
 
-Follow the protocol in `codex-model-check.md`: probe `gpt-5.5` locally first; only
+Follow the protocol in `../codex-model-check/SKILL.md`: probe `gpt-5.5` locally first; only
 run a web-search sub-agent if the probe fails. Record `CODEX_MODEL` and
 `CODEX_BASE_COMMAND` in loop state. Use these values at Stage 6b.
 
 ## Stage 1: Symptom Validation
 
-Read `debug-loop/symptom-validation.md`.
+Read `symptom-validation.md`.
 
 Ask the user in one batch:
 
@@ -98,7 +110,7 @@ Set `symptom_validated = true` only after returning `SYMPTOM_VALIDATION: status:
 
 ## Stage 2: Evidence Source Map
 
-Read `debug-loop/evidence-map.md`.
+Read `evidence-map.md`.
 
 Rank all available evidence by authority and list it.
 
@@ -110,7 +122,7 @@ Set `evidence_established = true` only after returning `EVIDENCE_MAP: ESTABLISHE
 
 ## Stage 3: Reproduction Gate
 
-Read `debug-loop/reproduction-gate.md`.
+Read `reproduction-gate.md`.
 
 Establish a deterministic, repeatable reproduction of the symptom before any analysis.
 
@@ -120,7 +132,7 @@ Set `red_evidence` only after returning `REPRODUCTION: CONFIRMED`.
 
 ## Stage 4: Hypothesis and Root-Cause Trace
 
-Read `debug-loop/root-cause-trace.md` and `debug-loop/debugger.md`.
+Read `root-cause-trace.md` and `debugger.md`.
 
 Form bounded, evidence-backed hypotheses only after `red_evidence` is confirmed.
 Use the debugger sub-system (Steps 4.1/4.2) for agent-driven RED/GREEN proof of
@@ -133,7 +145,7 @@ Set `root_cause_trace` only after returning `ROOT_CAUSE: TRACED`.
 
 ## Stage 5: Debug Handoff Generation
 
-Read `debug-loop/handoff-format.md`.
+Read `handoff-format.md`.
 
 Produce an `implement-loop` task file using the canonical schema: `CONTEXT`,
 `WHAT_TO_DO`, `TESTS`, `VERIFY`, `RUN_PROOF`, and `CHECKLIST`.
@@ -145,7 +157,7 @@ Record `debug_report_path` after writing the report and handoff.
 
 ## Stage 6: Self-Check and Reviewer Gate
 
-Read `debug-loop/review-gates.md`.
+Read `review-gates.md`.
 
 Self-check before review:
 

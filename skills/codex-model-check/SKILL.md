@@ -1,3 +1,11 @@
+---
+name: codex-model-check
+description: >
+  Verifies the current Codex CLI model (probe gpt-5.5 locally, web search only on
+  failure) and records CODEX_MODEL for loops that run a Codex gate (debug-loop).
+  Invoke with: /codex-model-check.
+---
+
 # Codex Model Check
 
 Run at the start of any loop that uses the Codex CLI gate. Verifies the current

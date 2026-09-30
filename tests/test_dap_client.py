@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Unit + integration tests for the debug-loop DAP client.
 
-Canonical location: skill/.claude/skills/debug-loop/dap_client.py (shipped in
-the installable payload); scripts/dap_client.py is a compatibility symlink.
+Canonical location: skills/debug-loop/dap_client.py (shipped in
+the plugin payload); scripts/dap_client.py is a compatibility symlink.
 
 Uses stdlib unittest only (no pytest). The DAP protocol paths are exercised
 against a scripted fake socket; the integration test launches a real debugpy

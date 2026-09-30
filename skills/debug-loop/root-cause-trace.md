@@ -26,12 +26,12 @@ Run only after RED evidence is confirmed (Stage 3: `REPRODUCTION: CONFIRMED`).
 
 ## Debugger Evidence (Steps 4.1 and 4.2)
 
-Read `debug-loop/debugger.md` for the full protocol. Only Stage 4 invokes the
+Read `debugger.md` for the full protocol. Only Stage 4 invokes the
 debugger; Stage 3 is never modified by it.
 
 - **Step 4.1 — RED session**: after pre-flight (`DEBUGGER_PREFLIGHT: READY`),
   launch the Stage 3 reproduction command (same cwd, env, args) under the
-  debugger and run the shipped DAP client (`debug-loop/dap_client.py`, resolved
+  debugger and run the shipped DAP client (`dap_client.py`, resolved
   per debugger.md's `{DAP_CLIENT}` rule) with `--mode red` and breakpoints at the
   hypothesized defect site. RED is confirmed only when the stop is reached
   (`BREAKPOINT_HIT` or `EXCEPTION_CAUGHT`) and the process fails. `NO_STOP`
