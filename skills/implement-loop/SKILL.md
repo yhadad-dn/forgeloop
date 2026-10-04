@@ -22,6 +22,21 @@ The reviewer gate and the run-proof gate must both pass before convergence. Afte
 gate becomes a bounded repair plan before another implementation pass. Stop after
 `MAX_ITERATIONS`.
 
+## Principle: Correctness Only Goes Up
+
+implement-loop exists to strengthen correctness, never to harm it. Every stage adds
+evidence or removes defects; none may weaken what is already true:
+
+- Never weaken a test, assertion, threshold, coverage bar, `RUN_PROOF` criterion, or
+  source correspondence to get a gate to pass.
+- A clean-code (A.5) or repair change that cannot be shown to be behavior-preserving
+  and in scope is reverted, not argued for.
+- A gate that cannot run (tool missing, cluster unreachable) is reported as not run,
+  never counted as passed.
+- Never switch ForgeLoop versions in the middle of a task: finish a task under the
+  version it started with; new rules apply from the next task.
+- When following a rule would harm correctness, stop and ask the user.
+
 Reference files (relative to this skill's directory):
 
 - `source-check.md`

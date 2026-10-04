@@ -25,6 +25,7 @@ pre-flight -> allocation map -> recommendation -> approval gate
 - `/cluster-loop recommend` — map + scored node recommendation
 - `/cluster-loop allocate <node> <partition> <duration>` — allocate a specific node
 - `/cluster-loop srun <jobid> <command>` — srun inside an active allocation
+- `/cluster-loop status [jobid] [--log <path>]` — everything relevant about the job's nodes
 
 ## Reference Files
 
@@ -135,6 +136,53 @@ When allocation is confirmed active, display:
 - Expiry time
 - How to attach: `tmux attach -t <session>`
 - How to srun: `/cluster-loop srun <jobid> <command>`
+
+Then show the output of `python3 cluster_status.py --job <jobid>` (Stage 8) so the
+user sees the allocated GPUs are free: no foreign processes or containers, and
+memory near zero.
+
+## Stage 8: Status (on request, and in every status report)
+
+Run the status script that ships in this skill's directory:
+
+```bash
+python3 cluster_status.py --job <jobid> [--log <run log>]   # or --mine
+```
+
+Default view, built for "status?": one row per job (what it is, node, progress bar
+with overall fraction, finish time, expiry, one-word state), one compact line per
+node (per-GPU utilization sparkline, idle GPUs), and warnings each with a proposed
+action. `--detail` adds per-GPU numbers, processes, containers, and disk.
+
+- Finish time: a printed ETA or tqdm remaining time from the log, else a rate
+  estimate from overall progress and the run step's elapsed time (marked `~`),
+  else `—` with the reason. Nested counters (`epoch 2/3 step 1840/2760`) give
+  overall progress.
+- Logs: pair `--log <path>` or `--log docker:<container>` with each `--job`.
+  Without `--log`: a batch job's `StdOut`, or the container the job (or its chained
+  predecessor) started, is used automatically.
+- Nodes are probed over ssh from the SLURM host: a plain `srun` step runs in its own
+  cgroup and sees no GPUs. Fallback: `srun --overlap --gres=gpu:<job's count>`.
+- Ownership: a GPU workload that predates the job holding its node is checked
+  against SLURM accounting (`sacct`): ours if the job holding the node when it
+  started is ours (the `job_name` filter, else the same user), else foreign, naming
+  that job. Without accounting it is "possibly foreign", never silently ours.
+- Settings: `slurm_host` and `job_name` in the repo's `.claude/forgeloop.md` or in
+  `~/.claude/forgeloop/forgeloop.md`; `--mine` then applies `job_name` (the `dn`
+  account is shared).
+- States, most severe first: node drained/down, killed before done (finishes after
+  expiry), stalled (log silent 10+ min), errors in log, OOM risk, foreign process,
+  disk full, expires soon, then `✓ on track (<spare>)`.
+- Speed: one SLURM round trip, parallel node probes (15 s timeout each), a reused
+  ssh connection, a per-node cache of how to read the GPUs, and a 20 s result cache
+  (`--fresh` bypasses). `--timing` shows where time goes.
+
+- Set `slurm_host` in `.claude/forgeloop.md` (or `FORGELOOP_SLURM_HOST`) when SLURM
+  commands must run over ssh.
+- Show the output verbatim in a code block, then explain each ⚠ warning in one line.
+- `--json` gives the same data for automation; `--raw` appends raw probe output
+  when a field looks wrong.
+- Exit codes: 0 healthy, 1 warnings present, 2 job not found.
 
 ## Stage 7: srun (on request)
 
