@@ -25,7 +25,7 @@ Source truth:
 Coverage:
   decision: {coverage_decision}
   changed production modules: {modules or none}
-  tester report: {summary}
+  coverage repair: {summary}
 
 Clean-code pass:
   status: {applied | no_changes | reverted_all | skipped_no_prod_changes}

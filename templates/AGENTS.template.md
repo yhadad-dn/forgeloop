@@ -17,7 +17,7 @@ Copy this file to `.claude/AGENTS.md` in a target repo and adapt it.
 | Implement/fix code | `/implement-loop` |
 | Plan a larger change | your planning workflow |
 | Review a finished diff | reviewer agents |
-| Improve coverage | tester agent |
+| Improve coverage | re-run `/implement-loop` (Stage R repair) |
 
 ## Repo-Specific Forbidden Paths
 

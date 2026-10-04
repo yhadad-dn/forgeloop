@@ -32,19 +32,18 @@ Review with these focuses:
 |---|---|
 | correctness | logic, edge cases, regressions, source/spec alignment |
 | security | unsafe subprocess, filesystem, network, secrets |
-| performance | hot-path allocations and avoidable recomputation |
-| standards | repo conventions, constants, generated artifact guards, Stage A.5 stayed in scope and left tests untouched |
-| slop | dead code, shallow tests, empty comments, premature abstractions |
+| hygiene | repo conventions, scope discipline, generated-artifact guards, dead code, shallow tests, premature abstractions, and material performance risk — one dispatch covering what used to be three separate reviewers, with findings still labeled `[standards]`/`[slop]`/`[performance]` |
 
 Reviewer fan-out is proportional to the diff:
 
 - docs-only diffs under ~50 changed lines (no code, config, CI, or permission
   changes — config edits can carry auth/deploy/secret risk and keep the full
-  gate): one combined correctness+standards reviewer;
+  gate): `reviewer-hygiene` alone;
 - small scoped code diffs (under ~50 lines) whose design already passed a
-  review gate (e.g. an approved debug-loop handoff): correctness plus slop at
-  minimum;
-- new code surfaces or larger diffs: all five reviewers.
+  review gate (e.g. an approved debug-loop handoff): `reviewer-correctness`
+  plus `reviewer-hygiene` at minimum;
+- new code surfaces or larger diffs: `reviewer-correctness`, `reviewer-security`,
+  and `reviewer-hygiene` — three dispatches instead of the previous five.
 
 Classify:
 

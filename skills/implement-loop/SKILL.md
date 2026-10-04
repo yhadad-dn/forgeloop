@@ -69,7 +69,7 @@ Extract or derive:
 
 - File references in this skill are relative to this skill's directory; `../<skill>/`
   points at a sibling ForgeLoop skill.
-- ForgeLoop agents (`developer`, `refactorer`, `source-check`, `tester`,
+- ForgeLoop agents (`developer`, `refactorer`, `source-check`,
   `reviewer-*`) are named `forgeloop:<agent>` when ForgeLoop is installed as a plugin,
   and `<agent>` when installed into a repo's `.claude/`.
 - Paths like `.claude/plans/` refer to the target repo, never the plugin directory.
@@ -260,7 +260,7 @@ Record one entry per iteration:
   red_evidence: present|n/a
   green_evidence: present|missing
   test_coverage: present|missing
-  coverage_decision: measured_pass|measured_below_threshold_tester_run|unavailable_review_required|not_applicable_no_prod_changes
+  coverage_decision: measured_pass|measured_below_threshold_repair_run|unavailable_review_required|not_applicable_no_prod_changes
   suite_result: pass|fail
   clean_code_status: applied|no_changes|reverted_all|skipped_no_prod_changes
   clean_code_applied_count: N

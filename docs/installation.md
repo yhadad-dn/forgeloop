@@ -9,16 +9,16 @@ In Claude Code:
 /plugin install forgeloop@forgeloop
 ```
 
-Skills are then available as `/forgeloop:plan-loop`, `/forgeloop:implement-loop`,
+This repo is its own marketplace (it's also distributed to the DriveNets team
+via the `gpu-team` marketplace). Skills are then available as `/forgeloop:plan-loop`, `/forgeloop:implement-loop`,
 `/forgeloop:debug-loop`, `/forgeloop:cluster-loop`, and `/forgeloop:codex-model-check`.
 Agents are named `forgeloop:developer`, `forgeloop:refactorer`, `forgeloop:reviewer-*`,
-and so on. Update with `/plugin update forgeloop@forgeloop`.
+and so on. Update with `/plugin marketplace update forgeloop`, then `/reload-plugins`.
 
-For a local checkout (development), point the marketplace at the directory:
+For development, load your working copy for one session without installing:
 
-```text
-/plugin marketplace add /path/to/forgeloop
-/plugin install forgeloop@forgeloop
+```bash
+claude --plugin-dir /path/to/forgeloop
 ```
 
 Then configure each repo you use it in:

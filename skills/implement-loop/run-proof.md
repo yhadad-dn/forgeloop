@@ -81,7 +81,10 @@ timeout ${TIMEOUT_SECONDS} srun --jobid=${RUN_JOBID} --chdir=${CWD} bash -lc '${
 ```
 
 For runs longer than a few minutes, launch inside the allocation's tmux session with
-the same redirect and poll the log; do not block on it blindly.
+the same redirect and poll the log; do not block on it blindly. Check progress with
+`python3 ../cluster-loop/cluster_status.py --job ${RUN_JOBID} --log <log path>`: a
+stale log, idle GPUs, or an ETA past the allocation's expiry are reasons to stop and
+ask the user before the run wastes the allocation.
 
 ### 3. Judge
 

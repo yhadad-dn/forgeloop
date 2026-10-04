@@ -20,7 +20,6 @@
 .claude/agents/developer.md
 .claude/agents/refactorer.md
 .claude/agents/source-check.md
-.claude/agents/tester.md
 .claude/agents/reviewer-*.md
 .claude/forgeloop.md
 .claude/AGENTS.template.md

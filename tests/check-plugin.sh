@@ -14,7 +14,7 @@ ok()  { echo "PASS: $1"; PASS=$((PASS + 1)); }
 bad() { echo "FAIL: $1"; [[ -n "${2:-}" ]] && echo "      $2"; FAIL=$((FAIL + 1)); }
 
 # --- Manifests ------------------------------------------------------------------
-for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+for f in .claude-plugin/plugin.json; do
     if python3 -m json.tool "$REPO_ROOT/$f" >/dev/null 2>&1; then
         ok "$f is valid JSON"
     else
@@ -37,13 +37,32 @@ fi
 # --- Versions agree -------------------------------------------------------------
 plugin_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
     "$REPO_ROOT/.claude-plugin/plugin.json")"
-market_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["plugins"][0]["version"])' \
-    "$REPO_ROOT/.claude-plugin/marketplace.json")"
 changelog_version="$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' "$REPO_ROOT/CHANGELOG.md" | cut -c4-)"
-if [[ "$plugin_version" == "$market_version" && "$plugin_version" == "$changelog_version" ]]; then
-    ok "plugin.json, marketplace.json, and CHANGELOG agree on version $plugin_version"
+if [[ "$plugin_version" == "$changelog_version" ]]; then
+    ok "plugin.json and CHANGELOG agree on version $plugin_version"
 else
-    bad "versions agree" "plugin=$plugin_version marketplace=$market_version changelog=$changelog_version"
+    bad "versions agree" "plugin=$plugin_version changelog=$changelog_version"
+fi
+
+# The gpu-team marketplace lists this plugin (when checked out inside it)
+market="$REPO_ROOT/../../.claude-plugin/marketplace.json"
+if [[ -f "$market" ]]; then
+    if python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); sys.exit(0 if any(p.get("source")=="./plugins/forgeloop" for p in m["plugins"]) else 1)' "$market"; then
+        ok "gpu-team marketplace.json lists ./plugins/forgeloop"
+    else
+        bad "gpu-team marketplace.json lists ./plugins/forgeloop"
+    fi
+fi
+
+# This repo's own marketplace.json (when it ships one, as yhadad-dn/forgeloop does)
+own_market="$REPO_ROOT/.claude-plugin/marketplace.json"
+if [[ -f "$own_market" ]]; then
+    market_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["plugins"][0]["version"])' "$own_market")"
+    if [[ "$market_version" == "$plugin_version" ]]; then
+        ok "own marketplace.json agrees with plugin.json on version $plugin_version"
+    else
+        bad "own marketplace.json version agrees" "plugin=$plugin_version marketplace=$market_version"
+    fi
 fi
 
 # --- Skill layout -----------------------------------------------------------------
@@ -63,6 +82,34 @@ for f in "$REPO_ROOT"/agents/*.md; do
         ok "agents/$name.md frontmatter name matches file"
     else
         bad "agents/$name.md frontmatter name matches file"
+    fi
+    if grep -qE "^tools: " "$f"; then
+        ok "agents/$name.md declares a scoped tools: list (not the full default set)"
+    else
+        bad "agents/$name.md declares a scoped tools: list (not the full default set)"
+    fi
+done
+
+for name in reviewer-correctness reviewer-security reviewer-hygiene source-check; do
+    f="$REPO_ROOT/agents/$name.md"
+    if grep -qE "^tools: Read, Grep, Glob" "$f"; then
+        ok "agents/$name.md is read-only (Read, Grep, Glob only — plus WebFetch where justified)"
+    else
+        bad "agents/$name.md is read-only (Read, Grep, Glob only — plus WebFetch where justified)"
+    fi
+done
+
+if grep -qE "^model: haiku" "$REPO_ROOT/agents/reviewer-hygiene.md"; then
+    ok "reviewer-hygiene.md uses a cheaper model (its findings are mostly non-blocking by design)"
+else
+    bad "reviewer-hygiene.md uses a cheaper model (its findings are mostly non-blocking by design)"
+fi
+
+for name in reviewer-correctness reviewer-security; do
+    if grep -qE "^model: " "$REPO_ROOT/agents/$name.md"; then
+        bad "agents/$name.md stays on the default model (highest-stakes reviewer, never downgraded)"
+    else
+        ok "agents/$name.md stays on the default model (highest-stakes reviewer, never downgraded)"
     fi
 done
 
@@ -100,6 +147,28 @@ PY
     ok "every skill-relative file reference resolves"
 else
     bad "every skill-relative file reference resolves" "$(head -5 <<<"$broken")"
+fi
+
+# --- Session conventions hook ---------------------------------------------------------
+if python3 -m json.tool "$REPO_ROOT/hooks/hooks.json" >/dev/null 2>&1 \
+        && grep -q "session_start.py" "$REPO_ROOT/hooks/hooks.json"; then
+    ok "hooks/hooks.json registers the SessionStart conventions hook"
+else
+    bad "hooks/hooks.json registers the SessionStart conventions hook"
+fi
+
+conv_lines="$(wc -l < "$REPO_ROOT/conventions.md")"
+if [[ "$conv_lines" -le 50 ]]; then
+    ok "conventions.md is $conv_lines lines (limit 50; it is injected into every session)"
+else
+    bad "conventions.md is $conv_lines lines (limit 50; it is injected into every session)"
+fi
+
+if grep -q "{CLUSTER_STATUS}" "$REPO_ROOT/conventions.md" \
+        && [[ -f "$REPO_ROOT/skills/cluster-loop/cluster_status.py" ]]; then
+    ok "conventions.md points at the shipped cluster_status.py"
+else
+    bad "conventions.md points at the shipped cluster_status.py"
 fi
 
 # --- Installer still delivers the plugin payload -------------------------------------

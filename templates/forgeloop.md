@@ -25,3 +25,11 @@ before Stage 0; its values override the skills' defaults. Delete lines you don't
 
 - node_map: ~/.claude/forgeloop/cluster_node_map.md
 - subnet_router: 100.109.84.43
+- slurm_host: dn@172.30.160.158   # des2-2; SLURM isn't installed on workstations
+- job_name: ^yhadad_               # --mine keeps only matching jobs (the dn account is shared)
+
+## Conventions
+
+Repo-specific conventions go here. The ForgeLoop session hook adds this section to
+every session in this repo, after the team defaults and your personal
+`~/.claude/forgeloop/conventions.md`. Delete the section if you have none.

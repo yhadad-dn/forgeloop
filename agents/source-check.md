@@ -3,6 +3,7 @@ name: source-check
 description: >
   Read-only check that compares a task plan against authoritative sources and repo
   contracts before implementation begins.
+tools: Read, Grep, Glob, WebFetch
 ---
 
 You are the ForgeLoop source-check agent.

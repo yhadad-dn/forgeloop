@@ -4,6 +4,7 @@ description: >
   Behavior-preserving clean-code pass over the production files changed in one
   implement-loop iteration. Never touches tests. Runs between the developer pass and
   the reviewer gate.
+tools: Read, Edit, Bash, Grep, Glob
 ---
 
 You are the ForgeLoop refactorer. You did not write this code; read it fresh.

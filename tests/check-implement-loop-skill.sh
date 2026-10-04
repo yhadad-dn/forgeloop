@@ -230,6 +230,96 @@ check \
     "$SKILL_DIR/implement-loop/review-gates.md" \
     "CLEAN_CODE_RESULT"
 
+# --- Principle: implement-loop only strengthens correctness -------------------
+check \
+    "implement-loop SKILL.md states the correctness-only-goes-up principle" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "Correctness Only Goes Up"
+
+check \
+    "implement-loop SKILL.md forbids switching versions mid-task" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "Never switch ForgeLoop versions in the middle of a task"
+
+# --- Behavior 6: reviewer-hygiene merge (performance+standards+slop) -----------
+check \
+    "reviewer-hygiene agent exists and labels findings by merged facet" \
+    "$REPO_ROOT/agents/reviewer-hygiene.md" \
+    "\\[standards\\|slop\\|performance\\]"
+
+check \
+    "reviewer-hygiene retains the standards forbidden-artifact check" \
+    "$REPO_ROOT/agents/reviewer-hygiene.md" \
+    "forbidden files"
+
+check \
+    "reviewer-hygiene retains the slop dead-code check" \
+    "$REPO_ROOT/agents/reviewer-hygiene.md" \
+    "dead code"
+
+check \
+    "reviewer-hygiene retains the performance non-blocking-by-default rule" \
+    "$REPO_ROOT/agents/reviewer-hygiene.md" \
+    "NON_BLOCKING"
+
+check \
+    "review-gates.md full gate is three reviewers, not five" \
+    "$SKILL_DIR/implement-loop/review-gates.md" \
+    "three dispatches instead of the previous five"
+
+# --- Behavior 7: terse one-line reviewer output (measured ~38% fewer output
+# tokens on a paired real dispatch; see CHANGELOG) ------------------------------
+for name in reviewer-correctness reviewer-security reviewer-hygiene; do
+    check \
+        "agents/$name.md specifies a one-line-per-finding output format" \
+        "$REPO_ROOT/agents/$name.md" \
+        "One line per finding"
+
+    check \
+        "agents/$name.md's finding format carries BLOCKING/NON_BLOCKING and a fix" \
+        "$REPO_ROOT/agents/$name.md" \
+        "BLOCKING\\|NON_BLOCKING.*—.*fix"
+
+    check \
+        "agents/$name.md bans preamble/summary restating the diff" \
+        "$REPO_ROOT/agents/$name.md" \
+        "No preamble, no summary"
+done
+
+check_deleted() {
+    local desc="$1"
+    local file="$2"
+    if [[ ! -e "$file" ]]; then
+        echo "PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "FAIL: $desc"
+        echo "      file should not exist: $file"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
+check_deleted \
+    "reviewer-performance.md removed (merged into reviewer-hygiene)" \
+    "$REPO_ROOT/agents/reviewer-performance.md"
+
+check_deleted \
+    "reviewer-standards.md removed (merged into reviewer-hygiene)" \
+    "$REPO_ROOT/agents/reviewer-standards.md"
+
+check_deleted \
+    "reviewer-slop.md removed (merged into reviewer-hygiene)" \
+    "$REPO_ROOT/agents/reviewer-slop.md"
+
+check_deleted \
+    "tester.md removed (unused — no loop ever dispatched it)" \
+    "$REPO_ROOT/agents/tester.md"
+
+check_absent \
+    "coverage-gate.md no longer names a separate tester agent" \
+    "$SKILL_DIR/implement-loop/coverage-gate.md" \
+    "tester agent|tester/coverage pass"
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

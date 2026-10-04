@@ -1,11 +1,95 @@
 # Changelog
 
+## 0.8.0
+
+- **Scoped `tools:` on every agent.** None previously declared one, so each got
+  Claude Code's full default tool set on every dispatch. `reviewer-correctness`,
+  `reviewer-security`, `reviewer-hygiene`, and `source-check` are now
+  `Read, Grep, Glob` (plus `WebFetch` for `source-check`, which may need to check
+  a published spec by URL) — matching what their own rules already say ("do not
+  edit files"). `refactorer` drops `Write` (it edits existing in-scope files, never
+  creates new ones). `developer` is unchanged in substance (`Read, Write, Edit,
+  Bash, Grep, Glob`), just now stated explicitly.
+  Measured: in an isolated paired dispatch with no MCP servers loaded, full vs.
+  restricted tool lists showed no measurable difference in
+  `cache_creation_input_tokens` (19026 vs 19444) — this harness's own built-in
+  tools are small next to an MCP-heavy setup. The restriction is still applied
+  for scope discipline (an agent that says "never edits files" shouldn't be able
+  to) and is expected to matter more in a session with MCP servers loaded, which
+  was not this test's environment — that expectation is reasoned, not measured.
+- **`reviewer-hygiene` runs on `model: haiku`.** Its findings are mostly
+  `NON_BLOCKING` by the agent's own design (see 0.7.0); a missed nit there is
+  cheap. `reviewer-correctness` and `reviewer-security` are unchanged — never
+  downgraded, same reasoning as not merging them.
+- **Terse one-line finding format** for `reviewer-correctness`, `reviewer-security`,
+  and `reviewer-hygiene`: `BLOCKING|NON_BLOCKING [facet]: <file>:<line> —
+  <problem>. <fix>.` instead of free-form prose, reusing the existing
+  BLOCKING/NON_BLOCKING vocabulary rather than inventing new severities.
+  Measured on one paired real dispatch (identical synthetic diff, same 3 real
+  findings both times — a dead redundant branch, an unused non-retry-safe
+  idempotency key, missing regression tests): 2305 → 1438 output tokens, a 38%
+  reduction, no information lost. This is a single run, not an average; rerun
+  before trusting it on a different workload.
+  Ideas scouted from `github.com/JuliusBrussee/caveman` (MIT): its
+  `caveman-explore` agent (`tools: Read, Glob, Grep`, `model: haiku`) and
+  `caveman-review`'s one-line finding format. Its own terse-voice persona was
+  deliberately not adopted — its own `docs/HONEST-NUMBERS.md` measures that at
+  3–9% output reduction with a documented net-negative failure mode, and it
+  conflicts with the structured status/summary conventions already in this file.
+
+## 0.7.0
+
+- **Reviewer roster cut from 9 agents to 6**, to reduce the dispatches `implement-loop`
+  makes per iteration without weakening any blocking check:
+  - Removed `tester`: no loop ever dispatched it (every reference to "tester" was the
+    boilerplate agent list or prose that never named an invocation). Coverage repair
+    is now an ordinary Stage R repair iteration; `coverage_decision`'s
+    `measured_below_threshold_tester_run` is renamed `measured_below_threshold_repair_run`.
+  - Merged `reviewer-performance`, `reviewer-standards`, and `reviewer-slop` into one
+    `reviewer-hygiene` agent. All three checklists are kept verbatim inside it, with
+    findings labeled `[standards]`/`[slop]`/`[performance]` so nothing is lost; it
+    also removes a duplicate Stage A.5 scope check that had drifted into both
+    `standards` and `slop` separately.
+  - `reviewer-correctness` and `reviewer-security` are unchanged and still dispatched
+    standalone — merging either into a shared pass was considered and rejected, since
+    diluting the two highest-stakes reviewers would trade correctness for tokens.
+  - `implement-loop`'s full reviewer gate (new code surfaces or larger diffs) is now
+    3 dispatches (correctness, security, hygiene) instead of 5. The reduced-fan-out
+    tiers for small/docs diffs also use `reviewer-hygiene` and are unchanged in count.
+
 ## 0.6.0
 
-- **ForgeLoop is now a Claude Code plugin.** `.claude-plugin/plugin.json` plus a
-  single-plugin `marketplace.json` at the repo root:
-  `/plugin marketplace add yhadad-dn/forgeloop`, `/plugin install forgeloop@forgeloop`.
-  Skills become `/forgeloop:<name>`, agents `forgeloop:<agent>`.
+- `implement-loop` states its governing principle, "Correctness Only Goes Up": no
+  stage may weaken tests, thresholds, run proofs, or source correspondence; unprovable
+  A.5/repair changes are reverted; a gate that cannot run is never a pass; ForgeLoop
+  versions never change mid-task.
+
+- **Session conventions hook**: a `SessionStart` hook injects `conventions.md` into
+  every session: status-report format (context, plain-words done list, visual
+  progress, cluster block, **Next:** / **What's stopping us:** / **From you:**) and Israel time. Personal
+  (`~/.claude/forgeloop/conventions.md`) and repo (`## Conventions` in
+  `.claude/forgeloop.md`) layers override it; `FORGELOOP_CONVENTIONS=off` disables it.
+  Summaries: project and assignment context, milestones with evidence, then the
+  status format from progress onward.
+- **`cluster_status.py`** (`/forgeloop:cluster-loop status`): a job table built for
+  "status?" (progress, finish time vs expiry, state), a compact GPU line per node,
+  and warnings with a proposed action; `--detail` for the full per-node view.
+  Finish time from the log's ETA or tqdm remaining time, else a rate estimate from
+  overall progress (nested epoch/step counters handled) and the SLURM step's
+  elapsed time. Fast: one SLURM round trip, parallel probes with per-node
+  timeouts, ssh ControlMaster, GPU-method and 20 s result caches, `--timing`.
+  Verified against the live cluster (54/54 fields): probes over ssh (an srun step's
+  cgroup hides the GPUs), KFD-based GPU-holder detection, workload ownership from
+  `sacct` (who held the node when it started), container logs as a progress source,
+  `slurm_host`/`job_name` settings, and a clear "no SLURM client" message.
+  Stdlib only; missing data shows as n/a or "—", never guessed.
+
+- **ForgeLoop is now a Claude Code plugin**, with this repo as its own
+  marketplace: `/plugin marketplace add yhadad-dn/forgeloop`, then
+  `/plugin install forgeloop@forgeloop`. Also distributed to the DriveNets team
+  via the `gpu-team` marketplace (`plugins/forgeloop/` in
+  `drivenets/dn-ai-plugins-marketplace`). Skills become `/forgeloop:<name>`,
+  agents `forgeloop:<agent>`.
 - Layout: `skill/.claude/skills/<name>.md` → `skills/<name>/SKILL.md` (sub-files beside
   it), `skill/.claude/agents/` → `agents/`, CLAUDE/AGENTS templates → `templates/`.
   File references are relative to each skill's directory.

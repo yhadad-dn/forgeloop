@@ -19,8 +19,8 @@ TEST_COVERAGE:
   coverage_annotations:
     module.path: undercounted_subprocess|none
   coverage_tooling: available|unavailable|not_run
-  coverage_decision: measured_pass|measured_below_threshold_tester_run|unavailable_review_required|not_applicable_no_prod_changes
-  test_coverage_tester_report:
+  coverage_decision: measured_pass|measured_below_threshold_repair_run|unavailable_review_required|not_applicable_no_prod_changes
+  coverage_repair_report:
     status: not_run|run
     modules_below_threshold: [module.path]
     before_after:
@@ -44,8 +44,9 @@ undercounting carry `none`.
 
 ## Threshold Policy
 
-- If changed production modules have measured coverage below 70%, run a tester/coverage
-  pass for those modules.
+- If changed production modules have measured coverage below 70%, trigger a repair
+  iteration (Stage R → Stage A) that adds tests for those modules. This is an
+  ordinary developer repair pass, not a separate agent.
 - If all measured changed production modules are at or above 70%, pass.
 - If no production modules changed, mark not applicable.
 - If tooling is unavailable, report that explicitly and let reviewers decide whether the

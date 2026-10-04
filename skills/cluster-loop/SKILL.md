@@ -40,7 +40,7 @@ pre-flight -> allocation map -> recommendation -> approval gate
 
 - File references in this skill are relative to this skill's directory; `../<skill>/`
   points at a sibling ForgeLoop skill.
-- ForgeLoop agents (`developer`, `refactorer`, `source-check`, `tester`,
+- ForgeLoop agents (`developer`, `refactorer`, `source-check`,
   `reviewer-*`) are named `forgeloop:<agent>` when ForgeLoop is installed as a plugin,
   and `<agent>` when installed into a repo's `.claude/`.
 - Paths like `.claude/plans/` refer to the target repo, never the plugin directory.

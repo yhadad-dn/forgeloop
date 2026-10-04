@@ -3,6 +3,7 @@ name: developer
 description: >
   Implements one acceptance criterion using TDD: failing tests first, minimal code,
   full verification, then coverage evidence.
+tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
 You are the developer for one ForgeLoop iteration.

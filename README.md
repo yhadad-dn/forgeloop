@@ -68,7 +68,9 @@ It is designed for high-stakes repos where "looks good" is not enough.
   production code before review, behavior-preserving (tests untouched, suite green),
   with separate feature and refactor patches. Adapted from `code-simplification`
   (addyosmani/agent-skills) and `code-simplifier` (Anthropic).
-- **Five reviewer roles**: correctness, security, performance, standards, and slop.
+- **Three reviewer agents**: `reviewer-correctness` and `reviewer-security` standalone,
+  plus `reviewer-hygiene` covering conventions, scope, dead code, and performance in
+  one dispatch — three reviewer dispatches instead of five on the full gate.
 - **Run-proof gate**: `implement-loop` runs the task's `RUN_PROOF` command locally
   (CPU) or inside a SLURM allocation via `cluster-loop` (GPU), and judges every pass
   criterion against quoted log evidence.
@@ -80,20 +82,21 @@ It is designed for high-stakes repos where "looks good" is not enough.
 
 ## Repo Layout
 
-ForgeLoop is a Claude Code plugin; the repo root is the plugin and its own marketplace.
+ForgeLoop is a Claude Code plugin; this repo is the plugin and its own
+marketplace. It's also distributed to the DriveNets team via the `gpu-team`
+marketplace (`plugins/forgeloop/` in `drivenets/dn-ai-plugins-marketplace`).
 
 ```text
-forgeloop/
+plugins/forgeloop/
   .claude-plugin/
     plugin.json                   # plugin manifest (name, version)
-    marketplace.json              # single-plugin marketplace pointing at ./
   skills/                         # one directory per skill
     implement-loop/SKILL.md       # + clean-code.md, run-proof.md, review-gates.md, ...
     plan-loop/SKILL.md
     debug-loop/SKILL.md           # + debugger.md, dap_client.py, ...
     cluster-loop/SKILL.md
     codex-model-check/SKILL.md
-  agents/                         # developer, refactorer, source-check, tester, reviewer-*
+  agents/                         # developer, refactorer, source-check, reviewer-*
   templates/                      # task/report templates, forgeloop.md repo config,
                                   # AGENTS/CLAUDE templates
   tests/                          # skill-text and packaging checks
@@ -269,6 +272,35 @@ Start from `templates/plan-loop-plan.md` to see the required plan format.
    When all gates pass, ForgeLoop reports exactly what changed and waits for human
    approval before commit.
 
+## Session Conventions
+
+Once installed, ForgeLoop adds its conventions to every session through a
+`SessionStart` hook, so Claude answers the same way everywhere:
+
+- **Status reports** (when you ask for one): context, what was done in plain words,
+  visual progress, a cluster block from `cluster_status.py` when cluster work is
+  involved, and a closing **Next:** / **What's stopping us:** / **From you:**.
+- **Summaries** (when you ask for one): project context, assignment context,
+  milestones with evidence, then the status format from progress onward.
+- **Times** in Israel time only.
+
+Layers, later wins: the plugin's `conventions.md` (team default), your
+`~/.claude/forgeloop/conventions.md` (personal), and the `## Conventions` section of
+a repo's `.claude/forgeloop.md`. Set `FORGELOOP_CONVENTIONS=off` to disable.
+
+## Cluster Status
+
+```bash
+python3 skills/cluster-loop/cluster_status.py --job <id> [--log <run log>]   # or --mine
+```
+
+One row per job: progress, finish time next to the allocation's expiry, and a state
+(`✓ on track`, `⚠ killed before done`, `⚠ stalled`, ...), plus a compact GPU line per
+node and warnings with a proposed action. `--detail` adds per-GPU numbers,
+processes, containers, and disk. Built for speed: one SLURM round trip, parallel
+node probes, reused ssh, short caches. Also available as
+`/forgeloop:cluster-loop status`.
+
 ## Philosophy
 
 ForgeLoop is intentionally strict:
@@ -306,7 +338,6 @@ With `install.sh`, the same files land in the repo:
   agents/developer.md
   agents/refactorer.md
   agents/source-check.md
-  agents/tester.md
   agents/reviewer-*.md
   forgeloop.md                      # repo configuration
   AGENTS.template.md
