@@ -1,6 +1,6 @@
 {
   "name": "forgeloop",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Gated workflow skills for agentic planning, implementation, debugging, and SLURM cluster work: source checks, TDD, clean-code pass, reviewer gates, real CPU/GPU run proofs, and explicit approval before commit.",
   "author": {
     "name": "Yakir Hadad",

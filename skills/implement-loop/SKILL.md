@@ -217,9 +217,7 @@ the captured diff with focused reviewers:
 
 - correctness;
 - security;
-- performance;
-- standards;
-- dead-code/slop.
+- hygiene (conventions, scope, dead code, and performance — one dispatch).
 
 Blocking findings produce a `FIX_BRIEF` and another loop iteration.
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.1
+
+- **Fixed:** `implement-loop/SKILL.md`'s Stage B description still named all five
+  pre-0.7.0 reviewers in prose ("correctness; security; performance; standards;
+  dead-code/slop") after the roster was cut to three dispatches
+  (`reviewer-correctness`, `reviewer-security`, `reviewer-hygiene`) in 0.7.0.
+  `review-gates.md` and the agent files were already correct — this was a plain
+  prose list, not a backtick-quoted agent name, so the greps that verified the
+  0.7.0 removal didn't catch it. Found by a peer Claude session (DNRT) cross-
+  checking a live `~/.claude` resync against the shipped skill files.
+
 ## 0.8.0
 
 - **Scoped `tools:` on every agent.** None previously declared one, so each got

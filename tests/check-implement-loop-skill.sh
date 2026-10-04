@@ -267,6 +267,30 @@ check \
     "$SKILL_DIR/implement-loop/review-gates.md" \
     "three dispatches instead of the previous five"
 
+# Caught by a peer session (DNRT) reviewing a live resync: the entry-point
+# SKILL.md had its own prose copy of the reviewer list (not a backtick-quoted
+# agent name, so the earlier tester/standards/slop removal greps missed it)
+# and still named all five old reviewers after the merge.
+check \
+    "implement-loop.md Stage B lists correctness" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "^- correctness;\$"
+
+check \
+    "implement-loop.md Stage B lists security" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "^- security;\$"
+
+check \
+    "implement-loop.md Stage B lists hygiene, not the five pre-merge reviewers" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "^- hygiene \\(conventions, scope, dead code, and performance"
+
+check_absent \
+    "implement-loop.md Stage B has no leftover standards/dead-code bullet list" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "dead-code/slop"
+
 # --- Behavior 7: terse one-line reviewer output (measured ~38% fewer output
 # tokens on a paired real dispatch; see CHANGELOG) ------------------------------
 for name in reviewer-correctness reviewer-security reviewer-hygiene; do
