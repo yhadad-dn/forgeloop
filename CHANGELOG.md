@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.10.0
+
+- **Git-diff-narrowed repair scope**: implement-loop's Stage R and Stage A.5 now
+  compute a precise per-iteration file list from persisted git tree snapshots —
+  what the previous repair pass actually touched — instead of rediscovering scope
+  or diffing cumulatively against the task's starting commit. Soft starting point,
+  never a hard restriction. Found and fixed through 4 real review iterations
+  (untracked-file-union pollution, a missing then too-narrow forbidden-path filter
+  for ForgeLoop's own `.claude/` artifacts, an incomplete N>2 fallback); a 5th issue
+  (HEAD as an unsafe baseline on a dirty working tree) surfaced at the iteration cap
+  and is tracked as a follow-up rather than rushed through
+  (`.claude/plans/followups/repair-scope-git-diff-narrowing-1.md`).
+- **Declarative `Sources` section** in `.claude/forgeloop.md`: repos can declare
+  authoritative/context-only sources once instead of restating source-ranking rules
+  per task or hand-writing them as CLAUDE.md prose (which drifts — a real example
+  CLAUDE.md re-explained ForgeLoop's own ranking logic and then went stale against
+  it). `implement-loop` Stage 0.5 and `plan-loop` Stage 2 treat declared entries as
+  pre-ranked, but still verify each one against the specific claim.
+- **New convention**: a commit that leaves a referenced plan, ADR, or doc out of
+  sync with what was actually built is incomplete, not merely untidy. Added to
+  implement-loop's Stage D, both Checklist templates, and the README's Philosophy
+  list.
+- README: added Mermaid flowcharts to the Debug/Plan/Implement Loop sections, a
+  version line in the header, and documentation for the previously-undocumented
+  `explorer` agent (shipped in 0.9.0, missing from the README until now).
+
 ## 0.9.0
 
 - **New `explorer` agent**: shared, read-only (`Read, Grep, Glob`), `model: haiku`,
