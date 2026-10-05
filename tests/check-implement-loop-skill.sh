@@ -466,6 +466,11 @@ check \
     "$SKILL_DIR/implement-loop/clean-code.md" \
     'forbidden by repo policy \(e\.g\. everything under `\.claude/`'
 
+check \
+    "implement-loop.md Stage D requires plan/ADR/doc sync before commit, not just tests/review/run-proof" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    'plan, code, and docs must stay in sync'
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

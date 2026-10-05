@@ -47,5 +47,7 @@ RUN_PROOF:
 - [ ] Clean-code pass completed (tests untouched, suite green)
 - [ ] Reviewer gate passed
 - [ ] Run-proof gate passed on the declared CPU/GPU target
+- [ ] Plan/ADR/docs updated to match what was actually built, if this change
+      invalidated any
 - [ ] User approved commit
 

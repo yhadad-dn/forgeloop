@@ -251,6 +251,11 @@ Every `DEFERRED` finding must be fixed or emitted as a follow-up task file
 before convergence (see `review-gates.md`); the convergence
 report lists each one under "Carried-forward findings".
 
+Before every commit: plan, code, and docs must stay in sync. If this change
+invalidates a plan file, an ADR, or a README section that describes the behavior just
+changed, update it as part of this task — a commit that leaves them out of sync is
+incomplete, not merely untidy, and belongs on the checklist like any other gate.
+
 Do not commit automatically.
 
 ## Iteration Log

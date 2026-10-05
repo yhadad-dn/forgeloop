@@ -6,6 +6,9 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
+**Current version: 0.9.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+version of record is `.claude-plugin/plugin.json`).
+
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
 to behave like a disciplined engineering process: source checks first, test-driven
 implementation, reviewer gates, external review, bounded repair loops, and explicit
@@ -159,6 +162,21 @@ expectations, and verification commands. Start from `templates/task-plan.md`.
 
 `debug-loop` follows eight stages:
 
+```mermaid
+flowchart TD
+    S0["Stage 0: Load Symptom"] --> S1["Stage 1: Symptom Validation"]
+    S1 --> S2["Stage 2: Evidence Source Map"]
+    S2 -->|conflict| ASK1[/"Ask user to resolve"/]
+    ASK1 --> S2
+    S2 --> S3["Stage 3: Reproduction Gate"]
+    S3 -->|RED confirmed| S4["Stage 4: Hypothesis + Root-Cause Trace"]
+    S4 -->|ROOT_CAUSE: TRACED| S5["Stage 5: Debug Handoff Generation"]
+    S5 --> S6["Stage 6: Self-Check, Reviewer + Codex Gate"]
+    S6 -->|blocking findings| S4
+    S6 -->|pass| S7["Stage 7: Approval Gate"]
+    S7 -->|approved| DONE(["hand off to implement-loop"])
+```
+
 1. **Stage 0: Load Symptom**
    Resolve the bug report or inline symptom description.
 
@@ -208,6 +226,22 @@ Start from `templates/debug-loop-report.md` to see the required report format.
 
 `plan-loop` follows eight stages:
 
+```mermaid
+flowchart TD
+    P0["Stage 0: Load Request"] --> P1["Stage 1: Requirements Validation"]
+    P1 --> P2["Stage 2: Reliable-Source Map"]
+    P2 -->|conflict| ASK1[/"Ask user to resolve"/]
+    ASK1 --> P2
+    P2 --> P3["Stage 3: Decision Gate"]
+    P3 -->|all decisions resolved| P4["Stage 4: Plan Generation"]
+    P4 --> P5["Stage 5: Plan Self-Check"]
+    P5 -->|checks fail| P4
+    P5 -->|checks pass| P6["Stage 6: Reviewer Gate"]
+    P6 -->|blocking findings| P4
+    P6 -->|pass| P7["Stage 7: Approval Gate"]
+    P7 -->|approved| DONE(["hand off to implement-loop"])
+```
+
 1. **Stage 0: Load Request**  
    Resolve the request file or inline description and extract the raw goal.
 
@@ -253,6 +287,27 @@ Start from `templates/plan-loop-plan.md` to see the required plan format.
 ## The Implement Loop
 
 `implement-loop` follows seven stages:
+
+```mermaid
+flowchart TD
+    I0["Stage 0: Load Task"] --> I05["Stage 0.5: Reliable-Source Check"]
+    I05 -->|conflict| ASK1[/"Ask user to resolve"/]
+    ASK1 --> I05
+    I05 --> A["Stage A: Developer TDD Pass"]
+    A --> A5["Stage A.5: Clean-Code Pass"]
+    A5 --> B["Stage B: Reviewer Gate"]
+    B -->|blocking findings| SR["Stage R: Repair Plan"]
+    SR --> A
+    B -->|pass| C["Stage C: Run-Proof Gate"]
+    C -->|FAIL| SR
+    C -->|ERROR| ASK2[/"Ask user: fix env, rerun"/]
+    ASK2 --> C
+    C -->|PASS| D["Stage D: Approval Gate"]
+    D -->|approved| DONE(["commit"])
+```
+
+Up to `MAX_ITERATIONS = 5` passes through Stage R → A → A.5 → B → C before the loop
+stops and writes a divergence report instead of converging.
 
 1. **Stage 0: Load Task**  
    Resolve the task file or inline criteria and extract context, tests, verification,
@@ -341,6 +396,8 @@ ForgeLoop is intentionally strict:
 - Repair iterations must stay inside scope.
 - Results and generated artifacts are never edited by hand unless your repo policy says
   otherwise.
+- A commit that leaves a referenced plan, ADR, or doc out of sync with what was
+  actually built is incomplete, not merely untidy.
 - The human chooses when to commit.
 
 ## Requirements
