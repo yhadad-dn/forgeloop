@@ -71,6 +71,18 @@ It is designed for high-stakes repos where "looks good" is not enough.
 - **Three reviewer agents**: `reviewer-correctness` and `reviewer-security` standalone,
   plus `reviewer-hygiene` covering conventions, scope, dead code, and performance in
   one dispatch — three reviewer dispatches instead of five on the full gate.
+- **`explorer` agent**: a cheap, read-only (`Read, Grep, Glob`, `model: haiku`),
+  citations-only broad-search dispatch for the one undirected-search moment in each of
+  `implement-loop` (Stage A), `plan-loop` (Stage 2), and `debug-loop` (Stage 4) — only
+  fires when the task doesn't already name an exact location, and its citations are a
+  starting point the dispatching agent must confirm itself, never trace-evidence or a
+  reviewer input on their own.
+- **Git-diff-narrowed repair scope**: repair iterations (`implement-loop`'s Stage R and
+  Stage A.5) get a precise, per-iteration file list computed from persisted git tree
+  snapshots — what the *previous* repair pass actually touched — instead of
+  rediscovering scope or diffing cumulatively against the task's starting commit. It's
+  a soft starting point, never a hard restriction: a fix that genuinely needs one more
+  file can still add it, with a one-line reason.
 - **Run-proof gate**: `implement-loop` runs the task's `RUN_PROOF` command locally
   (CPU) or inside a SLURM allocation via `cluster-loop` (GPU), and judges every pass
   criterion against quoted log evidence.
@@ -96,7 +108,7 @@ plugins/forgeloop/
     debug-loop/SKILL.md           # + debugger.md, dap_client.py, ...
     cluster-loop/SKILL.md
     codex-model-check/SKILL.md
-  agents/                         # developer, refactorer, source-check, reviewer-*
+  agents/                         # developer, refactorer, explorer, source-check, reviewer-*
   templates/                      # task/report templates, forgeloop.md repo config,
                                   # AGENTS/CLAUDE templates
   tests/                          # skill-text and packaging checks
@@ -165,7 +177,9 @@ expectations, and verification commands. Start from `templates/task-plan.md`.
 5. **Stage 4: Hypothesis and Root-Cause Trace**
    Form evidence-backed hypotheses. Require trace evidence to a file/line, config,
    runtime evidence, dependency behavior, or data shape. Fix handoff is blocked until
-   `ROOT_CAUSE: TRACED`.
+   `ROOT_CAUSE: TRACED`. Dispatches `explorer` when a hypothesis names a symptom but
+   not a location; an explorer citation alone never satisfies the trace-evidence
+   requirement — the dispatching agent confirms it by reading the cited range itself.
 
 6. **Stage 5: Debug Handoff Generation**
    Produce an `implement-loop` task using the canonical schema: `CONTEXT`, `WHAT_TO_DO`,
@@ -203,7 +217,8 @@ Start from `templates/debug-loop-report.md` to see the required report format.
 
 3. **Stage 2: Reliable-Source Map**  
    List, rank, and approve all authoritative sources. Conflicting sources stop the loop
-   and require a user decision.
+   and require a user decision. Dispatches `explorer` when ranking needs repo-wide
+   candidates the request doesn't already name.
 
 4. **Stage 3: Decision Gate**  
    Surface every unresolved decision. The user resolves each one. No autonomous choices.
@@ -250,13 +265,28 @@ Start from `templates/plan-loop-plan.md` to see the required plan format.
 
 3. **Stage A: Developer TDD Pass**  
    Write failing tests, implement the smallest passing change, run the full suite, and
-   report coverage.
+   report coverage. Dispatches `explorer` first when the task doesn't already name an
+   exact file:line; skipped when it does, or when a repair iteration's own
+   previous-iteration file list already pinpoints the location (see Stage R below).
 
 4. **Stage A.5: Clean-Code Pass**  
    A fresh `refactorer` agent simplifies only the changed production files: one change
    at a time, test files must stay byte-identical, the full suite must stay green, and
    coverage must not drop. Failing changes are restored from a snapshot; source-mirroring
    code, hot paths, and `simplify-ignore` blocks are left alone. Never fails the loop.
+   On iteration N > 1, scope is computed from a persisted per-iteration git tree
+   snapshot (what the *previous* repair pass touched), not a cumulative diff against the
+   task's starting commit — the snapshot hash is persisted to
+   `.claude/clean-code/<task>-iter<N>-tree.txt` for Stage R to read on the next
+   iteration.
+
+   **Stage R: Repair Plan** (iteration > 1, between Stage A.5 and the next Stage A)  
+   Converts a failed gate's `FIX_BRIEF` into a scoped repair plan. Reads the same
+   persisted tree snapshots to compute exactly what the previous repair pass touched,
+   and includes that as a labeled starting point in the plan's "Exact fix scope" —
+   never a hard restriction: a fix that genuinely needs one more file can still add it,
+   with a one-line reason. Missing persisted state falls back to Stage B's original
+   method and records the fallback, never guesses.
 
 5. **Stage B: Reviewer Gate**  
    Review the actual changed files with focused reviewers. Blocking findings produce a
@@ -337,6 +367,7 @@ With `install.sh`, the same files land in the repo:
   skills/codex-model-check/
   agents/developer.md
   agents/refactorer.md
+  agents/explorer.md
   agents/source-check.md
   agents/reviewer-*.md
   forgeloop.md                      # repo configuration

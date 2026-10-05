@@ -151,6 +151,7 @@ report `PLAN_AMENDMENT_REQUIRED` and stop.
 
 Dispatch `explorer` first when `WHAT_TO_DO` does not already name an exact file:line or
 a single named file to change; skip it when the task already pinpoints the location.
+On a repair iteration, a non-empty "Previous-iteration file list" in the repair plan also counts as already pinpointing the location, so explorer dispatch is skipped there too.
 Treat its citations as a starting point, not exhaustive — the developer should
 Read/Grep further itself when they don't resolve the question.
 

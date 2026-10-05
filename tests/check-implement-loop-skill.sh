@@ -391,6 +391,81 @@ check_absent \
     "$SKILL_DIR/implement-loop/review-gates.md" \
     "explorer"
 
+# --- Behavior 9: per-iteration git-diff scope for repair planning and clean-code -----
+check \
+    "clean-code.md persists TREE_A5 to a per-iteration tree.txt file (REQ-1)" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    'iter\$\{ITER\}-tree\.txt'
+
+check \
+    "clean-code.md iteration N>1 scope reads the prior persisted tree, not a cumulative diff vs HEAD (REQ-2)" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    'iter\$\(\(N-1\)\)-tree\.txt'
+
+check \
+    "clean-code.md records a fallback when the persisted tree file is missing (REQ-6)" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    'clean_code_scope_fallback: true'
+
+check \
+    "stage-r.md repair plan has a Previous-iteration file list field (REQ-3)" \
+    "$SKILL_DIR/implement-loop/stage-r.md" \
+    'Previous-iteration file list'
+
+check \
+    "stage-r.md repair plan has an escape-hatch field requiring a one-line reason (REQ-4)" \
+    "$SKILL_DIR/implement-loop/stage-r.md" \
+    'Additional files beyond the previous-iteration list'
+
+check \
+    "stage-r.md escape-hatch field requires a stated reason per added file (REQ-4)" \
+    "$SKILL_DIR/implement-loop/stage-r.md" \
+    'one-line reason'
+
+check \
+    "implement-loop.md Stage A explorer-dispatch clause treats a non-empty previous-iteration list as pinpointing the location (REQ-5)" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    '[Pp]revious-iteration file list.*pinpoint'
+
+# --- Behavior 9 (repair): tree-to-tree diffs must not re-union untracked files ---
+check_absent \
+    "clean-code.md N>1 scope computation no longer unions in untracked files" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    '\$\{TREE_A\}` plus untracked files'
+
+check \
+    "clean-code.md explains why the N>1 tree-to-tree diff needs no untracked-file union" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    'No "plus untracked files"'
+
+check_absent \
+    "stage-r.md previous-iteration list computation no longer unions in untracked files" \
+    "$SKILL_DIR/implement-loop/stage-r.md" \
+    '\$\{TREE_A5_prev1\}` plus untracked files'
+
+check \
+    "stage-r.md previous-iteration list filters to production files, like clean-code.md" \
+    "$SKILL_DIR/implement-loop/stage-r.md" \
+    'keep only production files'
+
+check \
+    "stage-r.md fallback covers both TREE_A5_prev1 and TREE_A5_prev2 missing" \
+    "$SKILL_DIR/implement-loop/stage-r.md" \
+    'TREE_A5_prev1.*is missing.*TREE_A5_prev2.*is missing'
+
+# --- Behavior 9 (repair, iteration 4): the forbidden-path filter must exclude the
+# whole ForgeLoop-internal .claude/ namespace generally, not just the one
+# .claude/clean-code/ subdirectory (which already needed widening once) ---
+check \
+    "stage-r.md production-file filter excludes the whole .claude/ namespace generally, not just .claude/clean-code/" \
+    "$SKILL_DIR/implement-loop/stage-r.md" \
+    'forbidden by repo policy \(e\.g\. everything under `\.claude/`'
+
+check \
+    "clean-code.md's own production-file filter excludes the whole .claude/ namespace generally, like stage-r.md's equivalent filter" \
+    "$SKILL_DIR/implement-loop/clean-code.md" \
+    'forbidden by repo policy \(e\.g\. everything under `\.claude/`'
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
