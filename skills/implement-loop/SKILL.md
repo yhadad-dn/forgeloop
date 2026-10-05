@@ -149,6 +149,11 @@ report `PLAN_AMENDMENT_REQUIRED` and stop.
 
 ## Stage A: Developer TDD Pass
 
+Dispatch `explorer` first when `WHAT_TO_DO` does not already name an exact file:line or
+a single named file to change; skip it when the task already pinpoints the location.
+Treat its citations as a starting point, not exhaustive — the developer should
+Read/Grep further itself when they don't resolve the question.
+
 First iteration prompt:
 
 ```text

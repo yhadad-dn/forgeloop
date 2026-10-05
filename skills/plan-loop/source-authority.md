@@ -2,6 +2,12 @@
 
 Run after Stage 1 completes. Run before Stage 3 and Stage 4.
 
+Dispatch `explorer` when ranking sources requires finding candidate files across the
+repo (e.g. "where does this repo already document X"); skip it when the user's request
+already names the specific spec/file to treat as authoritative. Treat its citations as a
+starting point, not exhaustive — search further yourself when they don't resolve the
+question.
+
 ## Source Priority
 
 Rank sources in this order:

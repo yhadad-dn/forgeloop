@@ -2,6 +2,14 @@
 
 Run only after RED evidence is confirmed (Stage 3: `REPRODUCTION: CONFIRMED`).
 
+Dispatch `explorer` when a hypothesis names a symptom but Stage 3's reproduction doesn't
+already pinpoint a file:line (e.g. no stack trace naming the site); skip it when the
+reproduction already names the location. Treat its citations as a starting point, not
+exhaustive — search further yourself when they don't resolve the question. An explorer
+citation may be used as `file_line` trace evidence only after the dispatching agent (not
+the explorer) confirms it by reading the cited range itself: the explorer alone never satisfies
+the trace-evidence requirement, consistent with "Correctness Only Goes Up."
+
 ## Hypothesis Protocol
 
 1. List candidate hypotheses ranked by likelihood given the RED evidence and evidence

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.9.0
+
+- **New `explorer` agent**: shared, read-only (`Read, Grep, Glob`), `model: haiku`,
+  citations-only broad search for the one real undirected-search moment in each of
+  `implement-loop` (Stage A), `plan-loop` (Stage 2), and `debug-loop` (Stage 4) — not
+  wired into `refactorer` or implement-loop's Stage B reviewers, which already receive
+  an explicit file list, and not into `cluster-loop`, whose survey is SSH/sinfo/squeue,
+  not file/symbol search. Dispatched only when the task doesn't already pinpoint a
+  location; its citations are a starting point, never exhaustive — the dispatching
+  agent confirms them itself before relying on them, and in `debug-loop` an explorer
+  citation alone never satisfies the `file_line` trace-evidence requirement.
+  Adapted from the `caveman-explore` agent in `github.com/JuliusBrussee/caveman` (MIT).
+  Planned via `/plan-loop`, implemented via `/implement-loop`: RED → GREEN on 4 new
+  check-script assertion groups (245 → 260 total), Stage A.5 clean-code pass returned
+  `NO_CHANGES` (reasoned: no safe simplification found), Stage B reviewer gate passed
+  with zero blocking findings across correctness/security/hygiene, Stage C run-proof
+  passed (the agent, dispatched for real, correctly cited
+  `implement-loop/SKILL.md:150` for a live question, independently re-verified).
+  The token/cost-reduction claim this was built for is tracked as a follow-up
+  measurement against real usage, not gated by this release.
+
 ## 0.8.1
 
 - **Fixed:** `implement-loop/SKILL.md`'s Stage B description still named all five

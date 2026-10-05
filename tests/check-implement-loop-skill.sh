@@ -344,6 +344,53 @@ check_absent \
     "$SKILL_DIR/implement-loop/coverage-gate.md" \
     "tester agent|tester/coverage pass"
 
+# --- Behavior 8: shared explorer agent for cheap broad search (REQ-1/REQ-2/REQ-6,
+# REQ-3 implement-loop Stage A dispatch threshold, REQ-4 refactorer/Stage B unchanged)
+check \
+    "explorer agent frontmatter name matches file" \
+    "$REPO_ROOT/agents/explorer.md" \
+    "^name: explorer\$"
+
+check \
+    "explorer agent is scoped to read-only tools (Read, Grep, Glob)" \
+    "$REPO_ROOT/agents/explorer.md" \
+    "^tools: Read, Grep, Glob\$"
+
+check \
+    "explorer agent runs on the haiku model" \
+    "$REPO_ROOT/agents/explorer.md" \
+    "^model: haiku\$"
+
+check \
+    "explorer agent output contract bans prose and preamble" \
+    "$REPO_ROOT/agents/explorer.md" \
+    "no preamble"
+
+check \
+    "explorer agent has the honest no-match output rule" \
+    "$REPO_ROOT/agents/explorer.md" \
+    "no relevant locations found"
+
+check \
+    "explorer agent credits the caveman-explore design inspiration" \
+    "$REPO_ROOT/agents/explorer.md" \
+    "caveman"
+
+check \
+    "implement-loop.md Stage A documents the explorer dispatch threshold" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "[Dd]ispatch.*\`explorer\`"
+
+check_absent \
+    "refactorer.md has no explorer references (REQ-4)" \
+    "$REPO_ROOT/agents/refactorer.md" \
+    "explorer"
+
+check_absent \
+    "review-gates.md has no explorer references (REQ-4)" \
+    "$SKILL_DIR/implement-loop/review-gates.md" \
+    "explorer"
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

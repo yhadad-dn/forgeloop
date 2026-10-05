@@ -352,6 +352,18 @@ check \
     "$TMPL_DIR/debug-loop-report.md" \
     "[Rr]egression test"
 
+# --- Behavior 13: Stage 4 dispatches the shared explorer agent above a threshold,
+# and an explorer citation alone never satisfies trace evidence (REQ-3) --------
+check \
+    "root-cause-trace.md Stage 4 documents the explorer dispatch threshold" \
+    "$SKILL_DIR/debug-loop/root-cause-trace.md" \
+    "[Dd]ispatch.*\`explorer\`"
+
+check \
+    "root-cause-trace.md requires the dispatching agent to confirm an explorer citation before it counts as trace evidence" \
+    "$SKILL_DIR/debug-loop/root-cause-trace.md" \
+    "explorer.*never satisfies"
+
 # --- Summary -----------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

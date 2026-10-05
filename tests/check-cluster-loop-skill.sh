@@ -12,6 +12,21 @@ TMPL_DIR="$REPO_ROOT/templates"
 PASS=0
 FAIL=0
 
+check_absent_dir() {
+    local desc="$1"
+    local dir="$2"
+    local pattern="$3"
+    if [[ -d "$dir" ]] && ! grep -rqiE -- "$pattern" "$dir"; then
+        echo "PASS: $desc"
+        PASS=$((PASS + 1))
+    else
+        echo "FAIL: $desc"
+        echo "      dir:     $dir"
+        echo "      forbidden pattern: $pattern"
+        FAIL=$((FAIL + 1))
+    fi
+}
+
 check() {
     local desc="$1"
     local file="$2"
@@ -145,6 +160,12 @@ check \
     "srun-inside.md uses --jobid to run inside active allocation" \
     "$SKILL_DIR/cluster-loop/srun-inside.md" \
     "--jobid"
+
+# --- Behavior 8: cluster-loop is out of scope for the explorer agent (REQ-5) --
+check_absent_dir \
+    "cluster-loop has no explorer references (REQ-5)" \
+    "$SKILL_DIR/cluster-loop" \
+    "explorer"
 
 # --- Summary -----------------------------------------------------------------
 echo ""

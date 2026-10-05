@@ -242,6 +242,13 @@ check \
     "$SKILL_DIR/plan-loop/requirements-validation.md" \
     "run_proof:"
 
+# --- Behavior 6: Stage 2 dispatches the shared explorer agent above a threshold
+# (REQ-3) -----------------------------------------------------------------------
+check \
+    "source-authority.md Stage 2 documents the explorer dispatch threshold" \
+    "$SKILL_DIR/plan-loop/source-authority.md" \
+    "[Dd]ispatch.*\`explorer\`"
+
 # --- Summary -----------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
