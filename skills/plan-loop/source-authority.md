@@ -8,6 +8,11 @@ already names the specific spec/file to treat as authoritative. Treat its citati
 starting point, not exhaustive — search further yourself when they don't resolve the
 question.
 
+If `.claude/forgeloop.md` declares a `## Sources` section, its `authoritative` entries
+are pre-approved rank 1/2 and its `context_only` entries are pre-approved rank 3 — skip
+re-deriving the ranking, but still read each declared source and verify the specific
+claim against it. A declared source is a pointer, not a substitute for checking it.
+
 ## Source Priority
 
 Rank sources in this order:

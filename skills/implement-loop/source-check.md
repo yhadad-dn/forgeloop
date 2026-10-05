@@ -2,6 +2,11 @@
 
 Run before any implementation work.
 
+If `.claude/forgeloop.md` declares a `## Sources` section, its `authoritative` entries
+are pre-approved rank 1/2 and its `context_only` entries are pre-approved rank 3 — skip
+re-deriving the ranking, but still read each declared source and verify the specific
+claim against it. A declared source is a pointer, not a substitute for checking it.
+
 ## Source Priority
 
 1. Published paper, specification, or official documentation explicitly identified by the

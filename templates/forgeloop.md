@@ -3,6 +3,19 @@
 Copy to `.claude/forgeloop.md` in your repo and edit. ForgeLoop skills read this file
 before Stage 0; its values override the skills' defaults. Delete lines you don't need.
 
+## Sources
+
+Declare this project's authoritative sources once, instead of restating source-ranking
+rules per task or in CLAUDE.md. `implement-loop`'s Stage 0.5 and `plan-loop`'s Stage 2
+treat `authoritative` entries as pre-approved rank 1/2 and `context_only` entries as
+rank 3 — they still read and verify each one against the specific claim, this just
+removes the need to re-derive the ranking every time. Delete this section if your
+authoritative sources already vary per task and are better left to each task's own
+`CONTEXT`.
+
+- authoritative: <paper/spec/official-doc link, e.g. "arXiv:2502.07864">
+- context_only: <generated report paths, e.g. `docs/*_report.md`, `docs/reviews/`>
+
 ## Commands
 
 - full_suite: `python3 -m pytest tests/ -q`

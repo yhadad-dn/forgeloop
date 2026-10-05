@@ -65,7 +65,9 @@ It is designed for high-stakes repos where "looks good" is not enough.
   `salloc --no-shell` inside an auto-created tmux session so the allocation survives
   disconnects, and runs `srun` inside the active allocation.
 - **Reliable-source check**: blocks implementation when the plan conflicts with the
-  paper, spec, official docs, or repo contracts.
+  paper, spec, official docs, or repo contracts. Declare them once in
+  `.claude/forgeloop.md`'s `Sources` section instead of restating ranking rules per
+  task or in `CLAUDE.md`.
 - **Developer handoff contract**: requires RED, GREEN, full-suite, and coverage evidence.
 - **Clean-code pass**: a fresh-context `refactorer` agent simplifies the changed
   production code before review, behavior-preserving (tests untouched, suite green),
@@ -434,9 +436,10 @@ With `install.sh`, the same files land in the repo:
 
 ## Before First Use
 
-Adapt these repo-specific settings:
+Adapt these repo-specific settings (most live in `.claude/forgeloop.md` — copy from
+`templates/forgeloop.md`):
 
-- authoritative specs, papers, and official docs;
+- authoritative specs, papers, and official docs — the `## Sources` section;
 - full-suite and targeted test commands;
 - forbidden generated artifact paths;
 - run-proof commands and pass criteria per task (and cluster access for GPU runs);

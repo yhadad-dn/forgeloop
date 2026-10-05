@@ -471,6 +471,22 @@ check \
     "$SKILL_DIR/implement-loop/SKILL.md" \
     'plan, code, and docs must stay in sync'
 
+# --- Behavior 11: declared .claude/forgeloop.md Sources are read by Stage 0.5 ---
+check \
+    "implement-loop.md's forgeloop.md override line mentions declared sources" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    'Codex policy, declared sources'
+
+check \
+    "source-check.md treats .claude/forgeloop.md's declared Sources as pre-approved" \
+    "$SKILL_DIR/implement-loop/source-check.md" \
+    'pre-approved rank'
+
+check \
+    "forgeloop.md template has a Sources section" \
+    "$TMPL_DIR/forgeloop.md" \
+    '^## Sources'
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

@@ -249,6 +249,17 @@ check \
     "$SKILL_DIR/plan-loop/source-authority.md" \
     "[Dd]ispatch.*\`explorer\`"
 
+# --- Behavior 7: declared .claude/forgeloop.md Sources are read by Stage 2 -----
+check \
+    "plan-loop/SKILL.md's forgeloop.md override line mentions declared sources" \
+    "$SKILL_DIR/plan-loop/SKILL.md" \
+    'Codex policy, declared sources'
+
+check \
+    "source-authority.md treats .claude/forgeloop.md's declared Sources as pre-approved" \
+    "$SKILL_DIR/plan-loop/source-authority.md" \
+    'pre-approved rank'
+
 # --- Summary -----------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

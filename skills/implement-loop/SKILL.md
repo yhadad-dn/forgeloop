@@ -75,7 +75,7 @@ Extract or derive:
 - Paths like `.claude/plans/` refer to the target repo, never the plugin directory.
 - Before Stage 0, read `.claude/forgeloop.md` in the target repo if it exists. Its
   values (test commands, coverage threshold, test-file patterns, forbidden paths,
-  Codex policy) override the defaults in this skill's files.
+  Codex policy, declared sources) override the defaults in this skill's files.
 
 ## Constants
 
