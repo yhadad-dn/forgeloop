@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.1
+
+- **Fix HEAD-as-baseline assumption in implement-loop**: Stage 0 now asserts a clean
+  working tree (`assert_clean_tree`), hard-blocking on pre-existing dirty files so they
+  are never attributed to iteration 1's scope, Stage R's N=2 fallback or Stage B's file
+  list. ForgeLoop's own artifact paths are excluded by pathspec, so it never blocks on
+  its own prior-run leftovers. Never auto-commits or auto-stashes. Resolves the
+  0.10.0 follow-up caveat. `.gitignore` gains the `clean-code`, `run-proofs`,
+  `plans/followups` and `plans/divergence-reports` artifact entries.
+- `marketplace.json` version corrected (was stale at 0.9.0).
+
 ## 0.10.0
 
 - **Git-diff-narrowed repair scope**: implement-loop's Stage R and Stage A.5 now

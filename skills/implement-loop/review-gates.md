@@ -12,6 +12,10 @@ git ls-files --others --exclude-standard > /tmp/files_untracked.txt
 cat /tmp/files_tracked.txt /tmp/files_untracked.txt | sort -u > /tmp/files_authoritative.txt
 ```
 
+`HEAD` is a valid baseline for this list because Stage 0 enforced a clean tree (outside
+ForgeLoop's own `.claude/` artifacts, which every filter already excludes); a
+pre-existing dirty file would otherwise be misattributed to the task.
+
 Reject any path your repo marks as a generated result or forbidden artifact.
 
 Capture:

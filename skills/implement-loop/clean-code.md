@@ -33,7 +33,9 @@ misreports untracked files as deleted.
 Build the changed file list:
 
 - iteration 1: exactly as Stage B does (`review-gates.md`) — `git diff --name-only HEAD`
-  plus untracked files.
+  plus untracked files. `HEAD` is a valid baseline here because
+  Stage 0 enforced a clean tree, so no pre-existing dirty file is folded into
+  iteration 1's scope.
 - iteration N > 1: read the prior iteration's persisted tree hash from
   `.claude/clean-code/<task>-iter$((N-1))-tree.txt`. If present, the changed file list
   is `git diff --name-only ${TREE_A5_prev} ${TREE_A}` — the files the previous repair

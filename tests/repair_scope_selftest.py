@@ -35,6 +35,14 @@ Three scenarios:
    file for either TREE_A5_prev1 or TREE_A5_prev2 is missing, the computed
    list must be empty and clean_code_scope_fallback must be true.
 
+4. SKILL.md Stage 0's literal `assert_clean_tree` bash block: an unrelated
+   modified tracked file and an unrelated untracked file must make it exit 1
+   and be listed.
+5. The same block must NOT block on leftovers from a prior run under
+   `.claude/clean-code/`, `.claude/run-proofs/`, `.claude/plans/` (exit 0), both
+   with no `.gitignore` and with this repo's real `.gitignore` (where plain
+   `git status --porcelain` is empty and `snapshot_tree()` omits them).
+
 stdlib only: subprocess, tempfile, os, sys, shutil, re, fnmatch.
 """
 
@@ -49,6 +57,8 @@ import tempfile
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLEAN_CODE_MD = os.path.join(REPO_ROOT, "skills", "implement-loop", "clean-code.md")
 STAGE_R_MD = os.path.join(REPO_ROOT, "skills", "implement-loop", "stage-r.md")
+SKILL_MD = os.path.join(REPO_ROOT, "skills", "implement-loop", "SKILL.md")
+GITIGNORE = os.path.join(REPO_ROOT, ".gitignore")
 
 FAILURES = []
 
@@ -469,17 +479,188 @@ def scenario_stage_r_fallback(stage_r_md):
     finally:
         shutil.rmtree(tree_dir, ignore_errors=True)
 
+# --- Scenarios 4 and 5: SKILL.md Stage 0 assert_clean_tree ------------------
+
+
+def clean_tree_check_source(skill_md):
+    """Return the literal assert_clean_tree bash block from SKILL.md."""
+    return extract_bash_fenced_block(skill_md, "assert_clean_tree()")
+
+
+def run_clean_tree_check(repo_dir, func_src):
+    """Run assert_clean_tree in repo_dir via bash -c; return (exit code, stdout)."""
+    script = func_src + "\nassert_clean_tree\n"
+    result = subprocess.run(
+        ["bash", "-c", script], cwd=repo_dir, capture_output=True, text=True,
+    )
+    return result.returncode, result.stdout
+
+
+PRIOR_RUN_ARTIFACTS = [
+    ".claude/clean-code/demo-iter1-feature.patch",
+    ".claude/clean-code/demo-iter1-tree.txt",
+    ".claude/run-proofs/demo-run.log",
+    ".claude/plans/followups/demo-1.md",
+    ".claude/plans/divergence-reports/demo-divergence.md",
+    ".claude/debug-reports/demo-session.md",
+]
+
+
+# Not gitignored by design (plans are tracked), so excluded only by the check's
+# pathspec; used for scenario 5a only.
+UNIGNORED_PLAN_ARTIFACT = ".claude/plans/demo-plan.md"
+
+
+def scenario_dirty_tree_blocks(skill_md):
+    """Scenario 4: unrelated uncommitted/untracked file -> exit 1 and path listed."""
+    func_src = clean_tree_check_source(skill_md)
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_dirty_")
+    try:
+        init_repo(repo_dir)
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check("scenario 4: clean scratch repo passes the check (sanity)", rc == 0, f"rc={rc} out={out!r}")
+
+        write_file(repo_dir, "base.txt", "modified, uncommitted\n")
+        write_file(repo_dir, "unrelated_untracked.txt", "pre-existing\n")
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        print(f"  scenario 4 exit={rc} output={out.strip()!r}")
+        check(
+            "scenario 4: dirty tracked + untracked file blocks (exit 1) and both paths are listed",
+            rc == 1 and "base.txt" in out and "unrelated_untracked.txt" in out,
+            f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+
+def scenario_prior_run_artifacts_do_not_block(skill_md, gitignore_src, snapshot_src):
+    """Scenario 5: leftovers from a prior run -> exit 0, with and without .gitignore entries."""
+    func_src = clean_tree_check_source(skill_md)
+
+    # 5a: no .gitignore at all (D4: the check itself must exclude the paths).
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_artifacts_nogi_")
+    try:
+        init_repo(repo_dir)
+        for rel in PRIOR_RUN_ARTIFACTS + [UNIGNORED_PLAN_ARTIFACT]:
+            write_file(repo_dir, rel, "leftover\n")
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check(
+            "scenario 5a: prior-run leftovers with no .gitignore do not block (exit 0)",
+            rc == 0, f"rc={rc} out={out!r}",
+        )
+        write_file(repo_dir, "real_change.txt", "x\n")
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check(
+            "scenario 5a: a real dirty file alongside the leftovers still blocks",
+            rc == 1 and "real_change.txt" in out and ".claude" not in out,
+            f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+    # 5b: this repo's real .gitignore, committed in the scratch repo.
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_artifacts_gi_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, ".gitignore", gitignore_src)
+        run(["git", "add", ".gitignore"], cwd=repo_dir)
+        run(["git", "commit", "-q", "-m", "gitignore"], cwd=repo_dir)
+        for rel in PRIOR_RUN_ARTIFACTS:
+            write_file(repo_dir, rel, "leftover\n")
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check(
+            "scenario 5b: prior-run leftovers with the real .gitignore do not block (exit 0)",
+            rc == 0, f"rc={rc} out={out!r}",
+        )
+        porcelain = run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=repo_dir)
+        print(f"  scenario 5b git status --porcelain: {porcelain!r}")
+        check(
+            "scenario 5b: git status --porcelain is empty with the real .gitignore",
+            porcelain == "" ,
+            f"porcelain={porcelain!r}",
+        )
+        tree = run_snapshot_tree(repo_dir, snapshot_src)
+        names = run(["git", "ls-tree", "-r", "--name-only", tree], cwd=repo_dir).splitlines()
+        leaked = [n for n in names if n.startswith(".claude/")]
+        check(
+            "scenario 5b: snapshot_tree() excludes the prior-run artifacts",
+            leaked == [], f"leaked={leaked}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+
+def scenario_subdir_dirty_tree_blocks(skill_md):
+    """Scenario 4b: run from a subdirectory; a dirty file elsewhere in the repo
+    still blocks (exit 1), confirming `-- .` is scoped at the toplevel."""
+    func_src = clean_tree_check_source(skill_md)
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_subdir_dirty_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, "sub/keep.txt", "tracked\n")
+        run(["git", "add", "sub/keep.txt"], cwd=repo_dir)
+        run(["git", "commit", "-q", "-m", "sub"], cwd=repo_dir)
+        sub_dir = os.path.join(repo_dir, "sub")
+        rc, out = run_clean_tree_check(sub_dir, func_src)
+        check("scenario 4b: clean repo from a subdirectory passes (sanity)", rc == 0, f"rc={rc} out={out!r}")
+        write_file(repo_dir, "base.txt", "modified outside sub\n")
+        write_file(repo_dir, "other/unrelated.txt", "untracked outside sub\n")
+        rc, out = run_clean_tree_check(sub_dir, func_src)
+        print(f"  scenario 4b exit={rc} output={out.strip()!r}")
+        check(
+            "scenario 4b: from a subdirectory, dirty files elsewhere in the repo block (exit 1) and are listed",
+            rc == 1 and "base.txt" in out and "other/unrelated.txt" in out,
+            f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+
+def scenario_subdir_artifacts_do_not_block(skill_md):
+    """Scenario 5c: nested sub/.claude/... artifacts, no .gitignore, run from sub/."""
+    func_src = clean_tree_check_source(skill_md)
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_subdir_artifacts_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, "sub/keep.txt", "tracked\n")
+        run(["git", "add", "sub/keep.txt"], cwd=repo_dir)
+        run(["git", "commit", "-q", "-m", "sub"], cwd=repo_dir)
+        for rel in PRIOR_RUN_ARTIFACTS + [UNIGNORED_PLAN_ARTIFACT]:
+            write_file(repo_dir, "sub/" + rel, "leftover\n")
+            write_file(repo_dir, rel, "leftover\n")
+        sub_dir = os.path.join(repo_dir, "sub")
+        rc, out = run_clean_tree_check(sub_dir, func_src)
+        check(
+            "scenario 5c: nested sub/.claude artifacts with no .gitignore, run from sub/, do not block (exit 0)",
+            rc == 0, f"rc={rc} out={out!r}",
+        )
+        write_file(repo_dir, "sub/real_change.txt", "x\n")
+        rc, out = run_clean_tree_check(sub_dir, func_src)
+        check(
+            "scenario 5c: a real dirty file alongside nested leftovers still blocks",
+            rc == 1 and "real_change.txt" in out and ".claude" not in out,
+            f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
 
 def main() -> int:
     clean_code_md = read(CLEAN_CODE_MD)
     stage_r_md = read(STAGE_R_MD)
     snapshot_src = snapshot_tree_function(clean_code_md)
+    skill_md = read(SKILL_MD)
+    gitignore_src = read(GITIGNORE)
 
     scenario_clean_code_scope(clean_code_md, snapshot_src)
     scenario_clean_code_artifact_filter(clean_code_md, snapshot_src)
     scenario_stage_r_general_claude_namespace_filter(stage_r_md, snapshot_src)
     scenario_stage_r_previous_iteration_list(clean_code_md, stage_r_md, snapshot_src)
     scenario_stage_r_fallback(stage_r_md)
+    scenario_dirty_tree_blocks(skill_md)
+    scenario_subdir_dirty_tree_blocks(skill_md)
+    scenario_subdir_artifacts_do_not_block(skill_md)
+    scenario_prior_run_artifacts_do_not_block(skill_md, gitignore_src, snapshot_src)
 
     print("")
     if FAILURES:

@@ -16,3 +16,10 @@ build/
 # reproducer cwd in a repo subdirectory.
 **/.claude/debug-reports/
 
+
+# ForgeLoop-internal run artifacts (never committed). .claude/plans/ itself is
+# NOT ignored: plans are tracked.
+**/.claude/clean-code/
+**/.claude/run-proofs/
+**/.claude/plans/followups/
+**/.claude/plans/divergence-reports/

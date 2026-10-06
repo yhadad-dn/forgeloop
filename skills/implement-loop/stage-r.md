@@ -6,7 +6,8 @@ Before building the plan, compute the previous iteration's touched-file list usi
 same persisted-tree mechanism as `clean-code.md` Section "Snapshot and Scope" (REQ-3):
 
 - read `TREE_A5_prev2` from `.claude/clean-code/<task>-iter$((N-2))-tree.txt`, or use
-  `HEAD` when `N-1 == 1` (iteration 1 always starts from `HEAD`);
+  `HEAD` when `N-1 == 1` (iteration 1 always starts from `HEAD`, a valid baseline because
+  Stage 0 enforced a clean tree);
 - read `TREE_A5_prev1` from `.claude/clean-code/<task>-iter$((N-1))-tree.txt`;
 - the previous-iteration file list is `git diff --name-only ${TREE_A5_prev2}
   ${TREE_A5_prev1}` — exactly what the previous repair pass touched. No "plus

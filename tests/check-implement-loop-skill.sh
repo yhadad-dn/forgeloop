@@ -487,6 +487,51 @@ check \
     "$TMPL_DIR/forgeloop.md" \
     '^## Sources'
 
+# --- Behavior 12: Stage 0 clean-tree precondition (HEAD is a valid baseline) ---
+check \
+    "implement-loop.md Stage 0 defines assert_clean_tree" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    'assert_clean_tree\(\)'
+
+check \
+    "implement-loop.md Stage 0 clean-tree step is step 5 and Stage 0.5 is renumbered to step 6" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    '^6\. Run Stage 0\.5 before implementation'
+
+check \
+    "implement-loop.md hard-blocks a dirty tree and never auto-commits or auto-stashes" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    'never auto-commit, never auto-stash'
+
+for entry in 'clean-code' 'run-proofs' 'plans/followups' 'plans/divergence-reports'; do
+    check \
+        ".gitignore ignores **/.claude/$entry/" \
+        "$REPO_ROOT/.gitignore" \
+        "^\*\*/\.claude/$entry/\$"
+done
+
+check_absent \
+    ".gitignore does not ignore .claude/plans/ wholesale" \
+    "$REPO_ROOT/.gitignore" \
+    '^[^#]*\.claude/plans/?$'
+
+for doc in review-gates clean-code stage-r; do
+    check \
+        "$doc.md states HEAD is a valid baseline because Stage 0 enforced a clean tree" \
+        "$SKILL_DIR/implement-loop/$doc.md" \
+        'Stage 0 enforced a clean (working )?tree'
+done
+
+check \
+    "README documents the implement-loop clean-tree precondition" \
+    "$REPO_ROOT/README.md" \
+    'clean working tree at start'
+
+check \
+    "README shows version 0.10.1" \
+    "$REPO_ROOT/README.md" \
+    'Current version: 0\.10\.1'
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

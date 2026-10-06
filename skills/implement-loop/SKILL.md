@@ -93,7 +93,31 @@ Extract or derive:
    incomplete, stop and ask the user for it — never invent a command or criteria.
    For `device: gpu`, get an active SLURM job ID from the user or offer
    `/cluster-loop` to allocate one; record it as `RUN_JOBID`.
-5. Run Stage 0.5 before implementation.
+5. Assert a clean working tree. `HEAD` is the baseline for iteration 1's scope, Stage R's
+   N=2 fallback and Stage B's file list, which is only valid if nothing was dirty at
+   invocation. Run from inside the target repo:
+
+```bash
+# Returns 0 if the tree is clean outside ForgeLoop artifact paths; otherwise prints
+# the offending `git status --porcelain` lines to stdout and returns 1.
+assert_clean_tree() {
+  local top out
+  top="$(git rev-parse --show-toplevel)" || return 2
+  out="$(git -C "$top" status --porcelain --untracked-files=all -- . \
+    ':(exclude,glob)**/.claude/clean-code/**' ':(exclude,glob)**/.claude/run-proofs/**' \
+    ':(exclude,glob)**/.claude/plans/**' ':(exclude,glob)**/.claude/debug-reports/**')" || return 2
+  [ -z "$out" ] && return 0
+  printf '%s\n' "$out"
+  return 1
+}
+```
+
+   If it returns 1, hard-block: stop, show the listed paths, and ask the user to commit
+   or stash them. This step is read-only: never auto-commit, never auto-stash, never
+   alter the user's tree. The pathspec excludes ForgeLoop's own artifact directories (glob
+   form, so nested `**/.claude/...` dirs under a subdirectory cwd are covered too), so a
+   prior run's leftovers never block, even in repos that do not gitignore them.
+6. Run Stage 0.5 before implementation.
 
 Initialize:
 
