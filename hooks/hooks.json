@@ -1,5 +1,5 @@
 {
-  "description": "Injects ForgeLoop conventions at session start and refreshes the cost heat map in the background",
+  "description": "Injects ForgeLoop conventions at session start, refreshes the cost heat map in the background, and shows live session cost above the prompt",
   "hooks": {
     "SessionStart": [
       {
@@ -17,5 +17,8 @@
         ]
       }
     ]
-  }
+  },
+  "modules": [
+    "./session_cost.tsx"
+  ]
 }

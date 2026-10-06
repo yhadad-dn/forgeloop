@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+- **Live session cost above the prompt**: a mod module (`hooks/session_cost.tsx`,
+  registered under `modules` in `hooks/hooks.json`) shows `Session $1.84 · ctx 41%` in
+  the band above the prompt after every turn, and writes the same text to the terminal
+  status line. Figures come from the engine's own session usage (the same totals `/cost`
+  reports; a list-price estimate, not a bill), so it needs no pricing table. Drawn
+  per surface, including the VS Code extension where the band slot is available.
+
 ## 0.11.0
 
 - **New `cost-heatmap` skill**: builds a self-contained interactive HTML heat map of

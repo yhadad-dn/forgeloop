@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.11.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.12.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -55,6 +55,9 @@ It is designed for high-stakes repos where "looks good" is not enough.
   transcripts (topic, tool, project, model, recurring jobs, run-rate, savings levers),
   refreshed in the background every session. See
   [docs/cost-heatmap.md](docs/cost-heatmap.md).
+- **Live session cost**: a mod (`hooks/session_cost.tsx`) shows `Session $1.84 · ctx 41%`
+  above the prompt after every turn (also in the terminal status line), from the engine's
+  own session totals, the same figures `/cost` reports.
 - **`plan-loop` skill**: a gated planning loop that validates requirements, maps source
   authority, forces user-only decision resolution, generates a complete plan, self-checks
   it, passes it through internal review, and waits for approval before handing off to
