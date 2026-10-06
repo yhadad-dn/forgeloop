@@ -2,12 +2,14 @@
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "setup" / "forgeloop_setup.py"
@@ -200,6 +202,133 @@ class SetupTests(unittest.TestCase):
         install = (ROOT / "docs" / "installation.md").read_text()
         self.assertIn("/forgeloop:setup", install)
         self.assertIn("README.md", install)
+
+
+class DurableTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self.tmp.name) / "home"
+        (self.home / ".claude").mkdir(parents=True)
+        self.settings = self.home / ".claude" / "settings.json"
+        self.machine = self.home / ".vscode-server" / "data" / "Machine" / "settings.json"
+        self.wrapper = self.home / ".claude" / "forgeloop" / "vscode-wrapper.sh"
+        self.helper = self.home / ".claude" / "forgeloop" / "forgeloop_tmux.py"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    cli = SetupTests.cli
+    status = SetupTests.status
+
+    def key(self):
+        return json.loads(self.machine.read_text()).get("claudeCode.claudeProcessWrapper")
+
+    def test_durable_plan_apply_idempotent(self):
+        m = load_module()
+        self.machine.parent.mkdir(parents=True)
+        self.machine.write_text(json.dumps({"editor.fontSize": 12}))
+        ch = m.compute_changes({}, str(self.home), (2, 1, 290), False, True)
+        self.assertEqual(self.status(ch, "durable-wrapper"), ["pending"])
+        self.assertEqual(self.status(ch, "durable-setting"), ["pending"])
+        p = self.cli("plan", "--durable", version="2.1.290")
+        self.assertIn("durable-setting", p.stdout)
+        self.assertFalse(self.wrapper.exists())
+        p = self.cli("apply", "--durable", version="2.1.290")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(self.key(), str(self.wrapper))
+        self.assertEqual(json.loads(self.machine.read_text())["editor.fontSize"], 12)
+        baks = list(self.machine.parent.glob("settings.json.forgeloop-bak-*"))
+        self.assertEqual(len(baks), 1)
+        self.assertEqual(json.loads(baks[0].read_text()), {"editor.fontSize": 12})
+        self.assertEqual(self.wrapper.read_bytes(), (ROOT / "scripts" / "forgeloop-vscode-wrapper.sh").read_bytes())
+        self.assertEqual(self.helper.read_bytes(), (ROOT / "skills" / "tmux-session" / "forgeloop_tmux.py").read_bytes())
+        self.assertTrue(os.access(self.wrapper, os.X_OK))
+        snap = {str(x): x.read_bytes() for x in self.home.rglob("*") if x.is_file()}
+        p2 = self.cli("apply", "--durable", version="2.1.290")
+        self.assertEqual(p2.returncode, 0, p2.stderr)
+        self.assertEqual(snap, {str(x): x.read_bytes() for x in self.home.rglob("*") if x.is_file()})
+        self.assertEqual(self.cli("--check", "--durable", version="2.1.290").returncode, 0)
+        self.helper.write_text("stale")  # an upgrade refreshes the copy
+        self.assertEqual(self.cli("--check", "--durable", version="2.1.290").returncode, 1)
+        self.cli("apply", "--durable", version="2.1.290")
+        self.assertEqual(self.helper.read_bytes(), (ROOT / "skills" / "tmux-session" / "forgeloop_tmux.py").read_bytes())
+
+    def test_durable_jsonc_refused(self):
+        self.machine.parent.mkdir(parents=True)
+        bad = '{\n  // comment\n  "a": 1,\n}\n'
+        self.machine.write_text(bad)
+        p = self.cli("apply", "--durable", version="2.1.290")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn('"claudeCode.claudeProcessWrapper": "%s"' % self.wrapper, p.stdout)
+        self.assertIn(str(self.machine), p.stdout)
+        self.assertEqual(self.machine.read_text(), bad)
+        self.assertEqual(list(self.machine.parent.glob("*bak*")), [])
+        self.assertTrue(json.loads(self.settings.read_text())["enabledPlugins"]["forgeloop@forgeloop"])
+        c = self.cli("--check", "--durable", version="2.1.290")
+        self.assertRegex(c.stdout, r"unknown durable-setting")
+
+    def test_durable_missing_machine_file_created(self):
+        self.assertFalse(self.machine.parent.exists())
+        p = self.cli("apply", "--durable", version="2.1.290")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(self.key(), str(self.wrapper))
+
+    def test_durable_existing_different_value_kept(self):
+        self.machine.parent.mkdir(parents=True)
+        self.machine.write_text(json.dumps({"claudeCode.claudeProcessWrapper": "/other/w.sh"}))
+        before = self.machine.read_bytes()
+        p = self.cli("apply", "--durable", version="2.1.290")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(self.machine.read_bytes(), before)
+        self.assertRegex(self.cli("--check", "--durable", version="2.1.290").stdout, r"unknown durable-setting")
+
+    def test_durable_not_planned_without_flag(self):
+        m = load_module()
+        ch = m.compute_changes({}, str(self.home), (2, 1, 290), False)
+        self.assertFalse([c for c in ch if c.item.startswith("durable")])
+        self.cli("apply", version="2.1.290")
+        self.assertFalse((self.home / ".vscode-server").exists())
+        self.assertFalse(self.wrapper.exists())
+        self.assertNotIn("durable", self.cli("--check", version="2.1.290").stdout)
+
+    def test_durable_broken_user_settings_does_not_block_machine_item(self):
+        bad = '{ // c\n}'
+        self.settings.write_text(bad)
+        p = self.cli("apply", "--durable", version="2.1.290")
+        self.assertEqual(p.returncode, 2)
+        self.assertEqual(self.settings.read_text(), bad)
+        self.assertEqual(self.key(), str(self.wrapper))
+        self.assertTrue(self.wrapper.exists())
+
+
+    def test_missing_plugin_source_makes_setting_unknown(self):
+        m = load_module()
+        empty = Path(self.tmp.name) / "plugin-no-scripts"
+        empty.mkdir()
+        with mock.patch.object(m, "PLUGIN_ROOT", empty):
+            ch = m.durable_changes(str(self.home))
+            self.assertEqual(self.status(ch, "durable-wrapper"), ["unknown"])
+            self.assertEqual(self.status(ch, "durable-setting"), ["unknown"])
+            setting = [c for c in ch if c.item == "durable-setting"][0]
+            self.assertIn(m.WRAPPER_KEY, setting.reason)
+            m.apply_changes(str(self.settings), str(self.home), ch)
+        self.assertFalse(self.machine.exists())
+        self.assertFalse(self.wrapper.exists())
+
+    def test_forgeloop_dir_created_private(self):
+        self.cli("apply", "--durable", version="2.1.290")
+        d = self.home / ".claude" / "forgeloop"
+        self.assertEqual(d.stat().st_mode & 0o777, 0o700)
+
+    def test_group_writable_dir_warns_but_proceeds(self):
+        d = self.home / ".claude" / "forgeloop"
+        d.mkdir()
+        os.chmod(d, 0o775)
+        p = self.cli("plan", "--durable", version="2.1.290")
+        self.assertIn("writable", p.stdout)
+        self.assertEqual(self.status(load_module().durable_changes(str(self.home)), "durable-wrapper"), ["pending"])
+        c = self.cli("--check", "--durable", version="2.1.290")
+        self.assertIn("writable", c.stdout)
 
 
 if __name__ == "__main__":

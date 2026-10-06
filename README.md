@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.13.2** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.14.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -130,6 +130,7 @@ plugins/forgeloop/
     cluster-loop/SKILL.md
     codex-model-check/SKILL.md
     cost-heatmap/SKILL.md         # + cost_heatmap.py, dashboard.template.html
+    tmux-session/SKILL.md         # + forgeloop_tmux.py (durable VS Code sessions)
   agents/                         # developer, refactorer, explorer, source-check, reviewer-*
   templates/                      # task/report templates, forgeloop.md repo config,
                                   # AGENTS/CLAUDE templates
@@ -446,6 +447,12 @@ prints it):
 precedence over user, project and local settings. ForgeLoop never writes managed
 settings.
 
+## Durable Sessions
+
+On a Remote-SSH VM, `/forgeloop:setup --durable` makes a new VS Code session run as a
+Remote Control server inside tmux, so it outlives a closed laptop; stop it with
+`/forgeloop:tmux-session stop`. See [`docs/durable-sessions.md`](docs/durable-sessions.md).
+
 ## Cluster Status
 
 ```bash
@@ -497,6 +504,7 @@ With `install.sh`, the same files land in the repo:
   skills/codex-model-check/
   skills/cost-heatmap/              # cost_heatmap.py + dashboard template
   skills/setup/                     # forgeloop_setup.py (/forgeloop:setup)
+  skills/tmux-session/              # forgeloop_tmux.py (/forgeloop:tmux-session)
   agents/developer.md
   agents/refactorer.md
   agents/explorer.md

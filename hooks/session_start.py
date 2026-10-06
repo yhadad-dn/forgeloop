@@ -15,6 +15,12 @@ Set FORGELOOP_SETUP_HINT=off to disable.
 Optional answer style: when FORGELOOP_STYLE=ste, or the first line of
 ~/.claude/forgeloop/style is "ste", the plugin's styles/ste.md (ASD-STE100) is added
 after the team layer. Any other value, or no setting, adds nothing.
+
+Durable-session question: ForgeLoop supports Remote-SSH hosts by default. On a different
+kind of remote host (container, WSL, Codespaces; forgeloop_tmux.classify_host says
+other_remote) with no ~/.claude/forgeloop/durable file, the hook adds one line telling
+Claude to ask the user and to record yes or no in that file. The hook never writes it.
+Set FORGELOOP_DURABLE=off to disable. Any error adds nothing.
 """
 
 import importlib.util
@@ -76,6 +82,30 @@ def setup_hint(root: Path, home: Path) -> str:
         return ""
 
 
+DURABLE_LINE = ("ForgeLoop supports Remote-SSH hosts by default, but this looks like a different kind "
+                "of remote host. Ask the user whether to enable durable (tmux) sessions on this kind "
+                "of host, then write `yes` or `no` into ~/.claude/forgeloop/durable with the answer "
+                "(Claude writes this file at the user's request).")
+
+
+def durable_line(root: Path, home: Path) -> str:
+    """Return the one-line question, or '' (not other_remote, answer file exists,
+    FORGELOOP_DURABLE=off, or any error). Never writes."""
+    try:
+        if os.environ.get("FORGELOOP_DURABLE", "").strip().lower() in OFF:
+            return ""
+        if (home / ".claude" / "forgeloop" / "durable").exists():
+            return ""
+        path = root / "skills" / "tmux-session" / "forgeloop_tmux.py"
+        spec = importlib.util.spec_from_file_location("forgeloop_tmux", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["forgeloop_tmux"] = mod
+        spec.loader.exec_module(mod)
+        return DURABLE_LINE if mod.classify_host(os.environ, os.path.exists) == "other_remote" else ""
+    except Exception:
+        return ""
+
+
 def repo_section(text: str) -> str:
     m = re.search(r"^## Conventions\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
     return m.group(1).strip() if m else ""
@@ -104,11 +134,12 @@ def main() -> int:
     repo = repo_section(read(project / ".claude" / "forgeloop.md"))
     if repo:
         layers.append("## Repo conventions (override the above)\n\n" + repo)
-    hint = setup_hint(root, Path.home())
-    if not layers and not hint:
+    extras = [x for x in (setup_hint(root, Path.home()), durable_line(root, Path.home())) if x]
+    if not layers and not extras:
         return 0
 
-    context = (HEADER + "\n\n".join(layers) + ("\n\n" + hint if hint else "")) if layers else hint
+    tail = "".join("\n\n" + x for x in extras)
+    context = (HEADER + "\n\n".join(layers) + tail) if layers else "\n\n".join(extras)
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",
                                              "additionalContext": context}}))
     return 0

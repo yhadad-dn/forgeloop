@@ -13,7 +13,9 @@ description: >
 ForgeLoop works without any settings change. This skill only adds the optional entries
 below, and only after the user approves the exact diff. It writes user scope only
 (`~/.claude/settings.json` and `~/.claude/forgeloop/style`), never project or managed
-settings. The helper is `forgeloop_setup.py`, next to this file. Run it with:
+settings. Only with `--durable` it writes two more locations: the VS Code remote machine
+settings file (`~/.vscode-server/data/Machine/settings.json`) and the copies
+`~/.claude/forgeloop/vscode-wrapper.sh` and `~/.claude/forgeloop/forgeloop_tmux.py`. The helper is `forgeloop_setup.py`, next to this file. Run it with:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/setup/forgeloop_setup.py" <command>
@@ -37,6 +39,14 @@ that repo's code: only run it if the user confirms they trust that repo's copy.
 | `env.CLAUDE_CODE_ENABLE_FUNCTION_HOOKS="1"` | the CLI version is below 2.1.287 and the key is absent |
 | `~/.claude/forgeloop/style` with `ste` | only if the user opts in (`--ste`) |
 | `extraKnownMarketplaces.forgeloop` and `enabledPlugins["forgeloop@forgeloop"]` | absent; an existing value (even `false`) is never changed. An existing `forgeloop@<any-marketplace>` install is detected and not duplicated |
+| `claudeCode.claudeProcessWrapper` in the machine settings file, plus the wrapper and helper copied to `~/.claude/forgeloop/` | only if the user opts in (`--durable`) and the key is absent. A different existing value is never overwritten; it is reported as `unknown` with the manual line. A machine file with comments (not strict JSON) is left byte-identical and only this item is skipped. A broken `~/.claude/settings.json` does not block it, and the reverse |
+
+Durable sessions need the plugin install: `scripts/install.sh` does not ship `scripts/`, so on that layout the durable items are reported `unknown` and nothing is written. Re-run `/forgeloop:setup --durable` after each plugin upgrade; the installed copy is not refreshed automatically (`--check` reports it).
+
+Warning to show with the durable question: once set, every VS Code window on this VM
+uses the wrapper. It passes everything through unchanged except a real Claude session
+start. To undo it, delete the `claudeCode.claudeProcessWrapper` key from the machine
+settings file, or set `FORGELOOP_DURABLE=off`.
 
 ## Steps
 
@@ -47,8 +57,9 @@ that repo's code: only run it if the user confirms they trust that repo's copy.
    it printed and stop. Nothing was changed.
 3. If nothing is pending, say so and stop.
 4. Ask the user for approval to apply the diff. Ask separately whether to turn on the
-   ASD-STE100 answer style (default no).
-5. After approval, run `apply`, adding `--ste` only if the user opted in. Show the
+   ASD-STE100 answer style (default no). Also ask separately whether to enable durable
+   VS Code sessions (default no) and show the warning above.
+5. After approval, run `apply`, adding `--ste` and `--durable` only if the user opted in (pass `--durable` to `plan` and `--check` too). Show the
    backup path it prints. Then run `--check` and report the result.
 
 ## If the write is denied

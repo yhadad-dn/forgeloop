@@ -46,6 +46,27 @@ class SessionStartHookTests(unittest.TestCase):
         self.assertIn(str(ROOT / "skills" / "cluster-loop" / "cluster_status.py"), ctx)
         self.assertNotIn("{CLUSTER_STATUS}", ctx)
 
+    def test_other_remote_line(self):
+        fl = self.home / ".claude" / "forgeloop"
+        marker = {"SSH_CONNECTION": "1.2.3.4 22 5.6.7.8 22", "CODESPACES": "true"}
+        ctx = self.run_hook(**marker)
+        self.assertIn("Remote-SSH hosts by default", ctx)
+        self.assertIn("~/.claude/forgeloop/durable", ctx)
+        self.assertEqual(ctx.count("durable (tmux) sessions"), 1)
+        ctx = self.run_hook(FORGELOOP_DURABLE="off", **marker)
+        self.assertNotIn("Remote-SSH hosts by default", ctx)
+        fl.mkdir(parents=True)
+        (fl / "durable").write_text("no\n")
+        self.assertNotIn("Remote-SSH hosts by default", self.run_hook(**marker))
+        (fl / "durable").unlink()
+        self.assertNotIn("Remote-SSH hosts by default", self.run_hook(SSH_CONNECTION="1 2 3 4", CODESPACES="", REMOTE_CONTAINERS="", WSL_DISTRO_NAME=""))
+        # not swallowed when there are no convention layers and no setup hint
+        empty_root = Path(self.tmp.name) / "root"
+        shutil.copytree(ROOT / "skills", empty_root / "skills")
+        ctx = self.run_hook(CLAUDE_PLUGIN_ROOT=str(empty_root), **marker)
+        self.assertIn("Remote-SSH hosts by default", ctx)
+
+
     def test_personal_and_repo_layers_appended_in_order(self):
         (self.home / ".claude" / "forgeloop").mkdir(parents=True)
         (self.home / ".claude" / "forgeloop" / "conventions.md").write_text("Call me Yak.")
@@ -163,6 +184,7 @@ class SetupHintTests(unittest.TestCase):
         plugin = self.plugin_copy()
         (plugin / "skills" / "setup" / "forgeloop_setup.py").write_text("raise RuntimeError('x')\n")
         self.assertNotIn(HINT, self.run_hook(root=plugin) or "")
+
 
 
 if __name__ == "__main__":

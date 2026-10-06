@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0
+
+- **Durable VS Code sessions on a Remote-SSH VM**: with `/forgeloop:setup --durable`, a new
+  session started from the VS Code extension runs as a Remote Control server inside a
+  detached `fl-*` tmux session, so it survives a closed laptop (not a VM reboot or sleep).
+  The panel shows the session name, link and attach command. Everything except a real
+  session start passes through unchanged; any failure falls back to a normal session.
+- **`/forgeloop:tmux-session`** skill: `list` and `stop` (confirmation first; only `fl-*`
+  sessions).
+- Other remote hosts (container, WSL, Codespaces): a session hint asks whether to enable
+  it. `FORGELOOP_DURABLE=off` disables the wrapper and the hint.
+- `scripts/claude-tmux.sh`: terminal launcher for a tmux session running `claude`.
+- Details in `docs/durable-sessions.md`.
+
 ## 0.13.2
 
 - **Clean-tree check ignores untracked `.claude/` files**: the `implement-loop` Stage 0

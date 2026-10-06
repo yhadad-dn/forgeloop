@@ -4,13 +4,19 @@
 Commands: plan (print the exact diff), apply (back up, then write), --check (print one
 line per item; exit 1 when something is pending), --team-snippet (print the JSON for a
 repo's .claude/settings.json). Writes user scope only: ~/.claude/settings.json and
-~/.claude/forgeloop/style. Python 3 standard library only.
+~/.claude/forgeloop/style. With the opt-in --durable it also writes two more locations:
+the VS Code remote machine settings file (~/.vscode-server/data/Machine/settings.json,
+key claudeCode.claudeProcessWrapper, only when absent) and the copies
+~/.claude/forgeloop/vscode-wrapper.sh and ~/.claude/forgeloop/forgeloop_tmux.py. Never
+project or managed settings. Each existing file written is backed up first.
+Python 3 standard library only.
 """
 
 import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -23,12 +29,19 @@ MIN_MODS_DEFAULT_ON = (2, 1, 287)
 MARKETPLACE = "forgeloop"
 PLUGIN_KEY = "forgeloop@forgeloop"
 REPO = "yhadad-dn/forgeloop"
+WRAPPER_KEY = "claudeCode.claudeProcessWrapper"
+PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+DURABLE_COPIES = (  # (source relative to plugin root, name under ~/.claude/forgeloop/, mode)
+    ("scripts/forgeloop-vscode-wrapper.sh", "vscode-wrapper.sh", 0o755),
+    ("skills/tmux-session/forgeloop_tmux.py", "forgeloop_tmux.py", 0o644),
+)
 MARKETPLACE_ENTRY = {"source": {"source": "github", "repo": REPO}}
 
 
 @dataclass(frozen=True)
 class Change:
     item: str          # "env-flag" | "ste-style" | "marketplace" | "enabled-plugin"
+                       # | "durable-wrapper" | "durable-setting"
     target: str        # settings key path or file path
     before: object
     after: object
@@ -69,7 +82,108 @@ def style_path(home):
     return Path(home) / ".claude" / "forgeloop" / "style"
 
 
-def compute_changes(settings, home, cli_version, want_ste):
+def machine_settings_path(home):
+    return Path(home) / ".vscode-server" / "data" / "Machine" / "settings.json"
+
+
+def wrapper_path(home):
+    return Path(home) / ".claude" / "forgeloop" / "vscode-wrapper.sh"
+
+
+def durable_manual_line(home):
+    return (f'Add this line by hand to {machine_settings_path(home)}:\n'
+            f'  "{WRAPPER_KEY}": "{wrapper_path(home)}"')
+
+
+def _copy_dest(home, name):
+    return Path(home) / ".claude" / "forgeloop" / name
+
+
+def _stale_copies(home):
+    """Return (stale destination list, missing source list)."""
+    stale, missing = [], []
+    for rel, name, _mode in DURABLE_COPIES:
+        src = PLUGIN_ROOT / rel
+        dst = _copy_dest(home, name)
+        if not src.is_file():
+            missing.append(str(src))
+        elif not dst.is_file() or dst.read_bytes() != src.read_bytes():
+            stale.append(str(dst))
+    return stale, missing
+
+
+def _ensure_private_dir(home):
+    d = Path(home) / ".claude" / "forgeloop"
+    created = not d.exists()
+    d.mkdir(parents=True, exist_ok=True)
+    if created:
+        os.chmod(d, 0o700)
+    return d
+
+
+def _perm_warning(home):
+    """Return a warning when the forgeloop dir or a copy in it is writable by others or not ours."""
+    d = Path(home) / ".claude" / "forgeloop"
+    bad = []
+    for p in [d] + [_copy_dest(home, n) for _r, n, _m in DURABLE_COPIES]:
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        if st.st_mode & 0o022 or st.st_uid != os.getuid():
+            bad.append(str(p))
+    if not bad:
+        return ""
+    return ("; WARNING: group/world-writable or not owned by you: " + ", ".join(bad)
+            + " (the wrapper runs as you; fix with chmod go-w and check the owner)")
+
+
+def durable_changes(home):
+    changes = []
+    wp = str(wrapper_path(home))
+    stale, missing = _stale_copies(home)
+    warn = _perm_warning(home)
+    if missing:
+        changes.append(Change("durable-wrapper", wp, None, None,
+                              "plugin source file missing: " + ", ".join(missing)
+                              + " (durable sessions need the plugin install; scripts/install.sh does not ship scripts/)"
+                              + warn, "unknown"))
+    elif stale:
+        changes.append(Change("durable-wrapper", wp, None, "copy",
+                              "copies the wrapper and its helper to ~/.claude/forgeloop/ (new or changed)" + warn, "pending"))
+    else:
+        changes.append(Change("durable-wrapper", wp, "copy", "copy", "already up to date" + warn, "ok"))
+
+    mp = machine_settings_path(home)
+    data, err = load_settings(mp)
+    if missing:
+        changes.append(Change("durable-setting", str(mp), None, None,
+                              "wrapper source missing (durable sessions need the plugin install, "
+                              "not scripts/install.sh); not set. " + durable_manual_line(home), "unknown"))
+    elif data is None:
+        changes.append(Change("durable-setting", str(mp), None, None,
+                              f"{mp} is not strict JSON ({err}); skipped, nothing changed. "
+                              + durable_manual_line(home), "unknown"))
+    elif WRAPPER_KEY not in data:
+        changes.append(Change("durable-setting", f"{mp}:{WRAPPER_KEY}", None, wp,
+                              "makes VS Code start Claude sessions through the wrapper", "pending"))
+    elif data[WRAPPER_KEY] == wp:
+        changes.append(Change("durable-setting", f"{mp}:{WRAPPER_KEY}", wp, wp, "already set", "ok"))
+    else:
+        changes.append(Change("durable-setting", f"{mp}:{WRAPPER_KEY}", data[WRAPPER_KEY], data[WRAPPER_KEY],
+                              "set to a different value; left alone (change it yourself to use ForgeLoop's wrapper)",
+                              "unknown"))
+    return changes
+
+
+def compute_changes(settings, home, cli_version, want_ste, want_durable=False):
+    changes = _user_changes(settings, home, cli_version, want_ste)
+    if want_durable:
+        changes += durable_changes(home)
+    return changes
+
+
+def _user_changes(settings, home, cli_version, want_ste):
     changes = []
     env = settings.get("env")
     target = f"env.{FLAG}"
@@ -133,7 +247,7 @@ def compute_changes(settings, home, cli_version, want_ste):
 def render_diff(changes):
     out = []
     for c in changes:
-        out.append(f"{c.status:8} {c.item:14} {c.target}")
+        out.append(f"{c.status:8} {c.item:15} {c.target}")
         if c.status == "pending":
             out.append(f"         - {json.dumps(c.before)}" if c.before is not None else "         - (absent)")
             out.append(f"         + {json.dumps(c.after)}")
@@ -164,21 +278,58 @@ def _atomic_write(path, text):
         raise
 
 
+def _backup(path):
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    bak = path.with_name(f"{path.name}.forgeloop-bak-{stamp}")
+    shutil.copy2(path, bak)
+    return str(bak)
+
+
+def _apply_durable(home, pending, backups):
+    for c in pending:
+        if c.item == "durable-wrapper":
+            for rel, name, mode in DURABLE_COPIES:
+                src = PLUGIN_ROOT / rel
+                dst = _copy_dest(home, name)
+                if dst.is_file() and dst.read_bytes() == src.read_bytes():
+                    continue
+                _ensure_private_dir(home)
+                if dst.exists():
+                    backups.append(_backup(dst))
+                fd, tmp = tempfile.mkstemp(dir=str(dst.parent), prefix=dst.name + ".tmp")
+                try:
+                    with os.fdopen(fd, "wb") as f:
+                        f.write(src.read_bytes())
+                    os.chmod(tmp, mode)
+                    os.replace(tmp, dst)
+                except BaseException:
+                    if os.path.exists(tmp):
+                        os.unlink(tmp)
+                    raise
+        elif c.item == "durable-setting":
+            mp = Path(os.path.realpath(machine_settings_path(home)))
+            data, err = load_settings(mp)
+            if data is None:
+                raise ValueError(err)
+            if mp.exists():
+                backups.append(_backup(mp))
+            data[WRAPPER_KEY] = c.after
+            _atomic_write(mp, json.dumps(data, indent=2) + "\n")
+
+
 def apply_changes(settings_path, home, changes):
     pending = [c for c in changes if c.status == "pending"]
     if not pending:
         return ""
-    backup = ""
-    settings_items = [c for c in pending if c.item != "ste-style"]
+    backups = []
+    settings_items = [c for c in pending if c.item in ("env-flag", "marketplace", "enabled-plugin")]
     if settings_items:
         settings, err = load_settings(settings_path)
         if settings is None:
             raise ValueError(err)
         sp = Path(os.path.realpath(settings_path))
         if sp.exists():
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            backup = str(sp.with_name(f"{sp.name}.forgeloop-bak-{stamp}"))
-            _atomic_write(backup, sp.read_text(encoding="utf-8"))
+            backups.append(_backup(sp))
         for c in settings_items:
             if c.item == "env-flag":
                 settings.setdefault("env", {})[FLAG] = c.after
@@ -189,8 +340,10 @@ def apply_changes(settings_path, home, changes):
         _atomic_write(sp, json.dumps(settings, indent=2) + "\n")
     for c in pending:
         if c.item == "ste-style":
+            _ensure_private_dir(home)
             _atomic_write(c.target, "ste\n")
-    return backup
+    _apply_durable(home, pending, backups)
+    return ", ".join(backups)
 
 
 def manual_lines():
@@ -204,6 +357,7 @@ def main(argv):
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--team-snippet", action="store_true")
     ap.add_argument("--ste", action="store_true")
+    ap.add_argument("--durable", action="store_true")
     ap.add_argument("--settings")
     ap.add_argument("--home")
     ap.add_argument("--cli-version")
@@ -215,17 +369,23 @@ def main(argv):
     home = args.home or str(Path.home())
     settings_path = args.settings or str(Path(home) / ".claude" / "settings.json")
     settings, err = load_settings(settings_path)
-    if settings is None:
+    broken = settings is None
+    if broken:
         print(f"error: cannot parse {settings_path}: {err}")
         print(manual_lines())
-        return 2
+        if not args.durable:
+            return 2
+        settings = {}
     cli = parse_version(args.cli_version) if args.cli_version else detect_cli_version()
-    changes = compute_changes(settings, home, cli, args.ste)
+    if broken:  # only the machine-file items may proceed; user-settings items change nothing
+        changes = durable_changes(home)
+    else:
+        changes = compute_changes(settings, home, cli, args.ste, args.durable)
 
     if args.check:
         for c in changes:
             print(f"{c.status} {c.item}: {c.reason}")
-        return 1 if any(c.status == "pending" for c in changes) else 0
+        return 2 if broken else 1 if any(c.status == "pending" for c in changes) else 0
     print(render_diff(changes))
     if args.command == "apply":
         try:
@@ -233,12 +393,15 @@ def main(argv):
         except (OSError, ValueError) as e:
             print(f"error: {e}")
             return 2
+        if broken:
+            print(f"backup: {backup}" if backup else "durable items already up to date")
+            return 2
         print(f"backup: {backup}" if backup else "nothing written to settings.json" if not
               any(c.status == "pending" for c in changes) else "applied (no existing settings file to back up)")
     else:
         print("\nTeam snippet for a repo's .claude/settings.json (printed only):")
         print(team_snippet())
-    return 0
+    return 2 if broken else 0
 
 
 if __name__ == "__main__":
