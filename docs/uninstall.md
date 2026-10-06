@@ -17,6 +17,7 @@
 .claude/skills/debug-loop/
 .claude/skills/cluster-loop/
 .claude/skills/codex-model-check/
+.claude/skills/cost-heatmap/
 .claude/agents/developer.md
 .claude/agents/refactorer.md
 .claude/agents/source-check.md

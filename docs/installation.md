@@ -11,7 +11,7 @@ In Claude Code:
 
 This repo is its own marketplace (it's also distributed to the DriveNets team
 via the `gpu-team` marketplace). Skills are then available as `/forgeloop:plan-loop`, `/forgeloop:implement-loop`,
-`/forgeloop:debug-loop`, `/forgeloop:cluster-loop`, and `/forgeloop:codex-model-check`.
+`/forgeloop:debug-loop`, `/forgeloop:cluster-loop`, `/forgeloop:codex-model-check`, and `/forgeloop:cost-heatmap`.
 Agents are named `forgeloop:developer`, `forgeloop:refactorer`, `forgeloop:reviewer-*`,
 and so on. Update with `/plugin marketplace update forgeloop`, then `/reload-plugins`.
 

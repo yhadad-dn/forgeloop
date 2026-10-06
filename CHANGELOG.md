@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.11.0
+
+- **New `cost-heatmap` skill**: builds a self-contained interactive HTML heat map of
+  agent token usage and list-price cost from local transcripts: Claude Code and Codex,
+  plus any other tool via `external_turns.csv`. Ported from a Cowork-oriented dashboard:
+  stdlib-only script, no org branding, optional monthly budget via `.claude/forgeloop.md`
+  (`## Cost heatmap`), Tool and Project dimensions, generic fallback topics (Claude writes
+  per-user topics), `pricing.json` overrides, unpriced models reported not guessed.
+  Output in `~/.claude/forgeloop/cost-heatmap/`. Not a gated loop.
+- **New SessionStart hook** `cost_heatmap_refresh.py`: refreshes the heat map in the
+  background each session (hourly at most, detached, never with a budget). Off with
+  `FORGELOOP_COST_HEATMAP=off`.
+
 ## 0.10.1
 
 - **Fix HEAD-as-baseline assumption in implement-loop**: Stage 0 now asserts a clean

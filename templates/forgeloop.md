@@ -46,3 +46,11 @@ authoritative sources already vary per task and are better left to each task's o
 Repo-specific conventions go here. The ForgeLoop session hook adds this section to
 every session in this repo, after the team defaults and your personal
 `~/.claude/forgeloop/conventions.md`. Delete the section if you have none.
+
+## Cost heatmap
+
+Optional settings for `/cost-heatmap`. Delete the section to skip the budget KPI. The
+automatic background refresh ignores this and never applies a budget.
+
+- budget_monthly: 200    # USD per month the run-rate is compared against
+- budget_ends: 2026-12-31

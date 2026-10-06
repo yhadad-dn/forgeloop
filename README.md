@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.10.1** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.11.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -50,6 +50,11 @@ It is designed for high-stakes repos where "looks good" is not enough.
 
 ## What You Get
 
+- **`cost-heatmap` skill**: not a gated loop; a one-shot report. Builds an interactive
+  heat map of your Claude Code and Codex token usage and list-price cost from local
+  transcripts (topic, tool, project, model, recurring jobs, run-rate, savings levers),
+  refreshed in the background every session. See
+  [docs/cost-heatmap.md](docs/cost-heatmap.md).
 - **`plan-loop` skill**: a gated planning loop that validates requirements, maps source
   authority, forces user-only decision resolution, generates a complete plan, self-checks
   it, passes it through internal review, and waits for approval before handing off to
@@ -119,6 +124,7 @@ plugins/forgeloop/
     debug-loop/SKILL.md           # + debugger.md, dap_client.py, ...
     cluster-loop/SKILL.md
     codex-model-check/SKILL.md
+    cost-heatmap/SKILL.md         # + cost_heatmap.py, dashboard.template.html
   agents/                         # developer, refactorer, explorer, source-check, reviewer-*
   templates/                      # task/report templates, forgeloop.md repo config,
                                   # AGENTS/CLAUDE templates
@@ -430,6 +436,7 @@ With `install.sh`, the same files land in the repo:
   skills/debug-loop/                # includes dap_client.py (Stage 4 debugger)
   skills/cluster-loop/
   skills/codex-model-check/
+  skills/cost-heatmap/              # cost_heatmap.py + dashboard template
   agents/developer.md
   agents/refactorer.md
   agents/explorer.md

@@ -527,10 +527,12 @@ check \
     "$REPO_ROOT/README.md" \
     'clean working tree at start'
 
+plugin_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
+    "$REPO_ROOT/.claude-plugin/plugin.json")"
 check \
-    "README shows version 0.10.1" \
+    "README shows the plugin.json version ($plugin_version)" \
     "$REPO_ROOT/README.md" \
-    'Current version: 0\.10\.1'
+    "Current version: ${plugin_version//./\\.}"
 
 # --- Summary -------------------------------------------------------------------
 echo ""

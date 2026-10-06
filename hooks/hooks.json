@@ -1,5 +1,5 @@
 {
-  "description": "Injects ForgeLoop conventions (plugin default, then personal, then repo) at session start",
+  "description": "Injects ForgeLoop conventions at session start and refreshes the cost heat map in the background",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,11 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/cost_heatmap_refresh.py\"",
+            "timeout": 5
           }
         ]
       }

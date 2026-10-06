@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Cost Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --dn-blue:#0066FA; --dn-blue-mid:#0044B8; --dn-blue-light:#00A0FA; --dn-blue-pale:#E8F0FE;
+  --dn-orange:#FF5E1F; --dn-orange-mid:#CC4B19; --dn-orange-pale:#FFF0EB;
+  --dn-green:#66c61a; --dn-red:#E5282E;
+  --grad-blue:linear-gradient(135deg,#0066FA 0%,#00A0FA 100%);
+  --grad-orange:linear-gradient(135deg,#FF5E1F 0%,#FFC94F 100%);
+  --grad-dark:linear-gradient(135deg,#00A0FA 0%,#62CFF6 100%);
+  --grad-teal:linear-gradient(135deg,#000000 0%,#0066FA 100%);
+  --radius-sm:8px; --radius-md:12px; --radius-lg:16px; --radius-xl:20px; --radius-btn:12px;
+}
+[data-theme="light"]{
+  --bg-body:#F4F6FB; --bg-sidebar:#FFFFFF; --bg-topnav:#FFFFFF; --bg-card:#FFFFFF; --bg-card-alt:#F8FAFF;
+  --border:#E8EAF0; --text-primary:#111827; --text-secondary:#6B7280; --text-muted:#9CA3AF;
+  --shadow-card:0 2px 12px rgba(0,0,0,.07); --shadow-card-hover:0 6px 24px rgba(0,0,0,.12);
+  --chart-grid:#8896A8; --chart-text:#9CA3AF; --table-row-alt:#F8FAFF; --table-head:#F1F3F8;
+  --topnav-shadow:0 1px 0 #E8EAF0; --sidebar-active:#E8F0FE; --icon-color:#6B7280;
+}
+[data-theme="dark"]{
+  --bg-body:#0D1117; --bg-sidebar:#161B27; --bg-topnav:rgba(22,27,39,.95); --bg-card:#1C2333; --bg-card-alt:#1A2236;
+  --border:rgba(255,255,255,.08); --text-primary:#F0F2F8; --text-secondary:#8B93A8; --text-muted:#555E72;
+  --shadow-card:0 2px 12px rgba(0,0,0,.4); --shadow-card-hover:0 6px 24px rgba(0,0,0,.6);
+  --chart-grid:rgba(255,255,255,.07); --chart-text:rgba(255,255,255,.4); --table-row-alt:rgba(255,255,255,.03);
+  --table-head:rgba(255,255,255,.06); --topnav-shadow:0 1px 0 rgba(255,255,255,.07); --sidebar-active:rgba(0,102,250,.18);
+  --icon-color:#9399a3;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Poppins',sans-serif;font-weight:400;background:var(--bg-body);color:var(--text-primary);transition:background .2s,color .2s}
+.si{width:16px;height:16px;flex-shrink:0;stroke:var(--icon-color);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+
+/* ---- top nav ---- */
+.topnav{position:fixed;top:0;left:0;right:0;height:60px;background:var(--bg-topnav);box-shadow:var(--topnav-shadow);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:100}
+.topnav-brand{display:flex;align-items:center;gap:14px}
+.topnav-logo-dn{height:26px}
+[data-theme="dark"] .topnav-logo-dn .st0{fill:#FFFFFF}
+.topnav-title{font-size:.98rem;font-weight:600;color:var(--text-primary)}
+.topnav-sub{font-size:.72rem;color:var(--text-secondary);font-weight:400}
+.topnav-right{display:flex;align-items:center;gap:14px}
+.updated-pill{font-size:.72rem;color:var(--text-secondary);font-weight:500}
+.theme-toggle{width:34px;height:34px;border-radius:var(--radius-btn);border:1px solid var(--border);background:var(--bg-card);
+  display:flex;align-items:center;justify-content:center;cursor:pointer}
+.theme-toggle:hover{background:var(--bg-card-alt)}
+
+/* ---- layout ---- */
+.controlbar{margin-top:60px;position:sticky;top:60px;z-index:90;background:var(--bg-sidebar);
+  border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
+.cb-group{display:flex;flex-direction:column;gap:6px;min-width:170px}
+.cb-group.grow{flex:1;min-width:220px}
+.cb-group label{font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)}
+.cb-group select,.cb-group input{font-family:inherit;font-size:.8rem;padding:8px 10px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary)}
+.cb-group select:focus,.cb-group input:focus{outline:none;border-color:var(--dn-blue)}
+#filterinfo{font-size:.72rem;color:var(--dn-blue);font-weight:500;margin-top:6px;white-space:nowrap}
+
+.main{padding:24px;min-width:0}
+.banner{background:linear-gradient(135deg,rgba(0,102,250,.06) 0%,rgba(0,160,250,.03) 100%);border:1px solid var(--dn-blue-pale);
+  border-radius:var(--radius-md);padding:12px 18px;font-size:.82rem;color:var(--text-secondary);margin-bottom:20px}
+.banner b{color:var(--dn-blue)}
+.alert-banner{background:linear-gradient(135deg,rgba(229,40,46,.07) 0%,rgba(252,165,165,.05) 100%);
+  border:1px solid rgba(229,40,46,.25);border-radius:var(--radius-md);padding:12px 18px;font-size:.82rem;
+  color:var(--text-secondary);margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.alert-banner b,.alert-banner .si{color:var(--dn-red);stroke:var(--dn-red)}
+
+/* ---- KPI cards ---- */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+.kpi-card{position:relative;overflow:hidden;border-radius:var(--radius-lg);padding:20px 22px;color:#fff}
+.kpi-card::after{content:'';position:absolute;right:-20px;bottom:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.08)}
+.kpi-card::before{content:'';position:absolute;right:20px;bottom:-35px;width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.06)}
+.kpi-card.blue{background:var(--grad-blue);box-shadow:0 8px 24px rgba(0,102,250,.3)}
+.kpi-card.orange{background:var(--grad-orange);box-shadow:0 8px 24px rgba(255,94,31,.3)}
+.kpi-card.dark{background:var(--grad-dark);box-shadow:0 8px 24px rgba(0,136,221,.3)}
+.kpi-card.teal{background:var(--grad-teal);box-shadow:0 8px 24px rgba(0,102,250,.3)}
+.kpi-card .num{position:relative;font-size:1.9rem;font-weight:600;line-height:1.1}
+.kpi-card .lbl{position:relative;font-size:.78rem;font-weight:500;opacity:.92;margin-top:6px}
+.kpi-card .sub{position:relative;font-size:.7rem;font-weight:400;opacity:.82;margin-top:8px;line-height:1.4}
+/* trajectory chip on a gradient card: white pill, no color coding (the arrow carries the direction) */
+.kpi-card .trj{position:relative;display:inline-flex;align-items:center;gap:4px;margin-top:9px;
+  padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.20);font-size:.7rem;font-weight:500;
+  font-variant-numeric:tabular-nums;line-height:1.3}
+.kpi-card .trj svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* split bar: recurring vs ad-hoc share inside a KPI card */
+.kpi-card .splitbar{position:relative;display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:10px;background:rgba(255,255,255,.22)}
+.kpi-card .splitbar i{display:block;background:#fff;opacity:.92}
+
+/* ---- cards ---- */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);
+  padding:20px 22px;margin-bottom:20px}
+.card h2{font-size:.92rem;font-weight:600;color:var(--text-primary);margin-bottom:3px}
+.card .desc{font-size:.76rem;color:var(--text-secondary);margin-bottom:14px}
+.pill{display:inline-block;font-size:.66rem;font-weight:500;padding:3px 10px;border-radius:20px;margin-left:8px}
+.pill.green{background:rgba(102,250,0,.12);color:#3DAA00}
+[data-theme="dark"] .pill.green{background:rgba(102,198,26,.15);color:#8FE04B}
+
+/* ---- insights ---- */
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.ins{border:1px solid var(--border);border-left:4px solid var(--dn-blue);border-radius:var(--radius-md);padding:14px 16px;background:var(--bg-card-alt)}
+.ins.hot{border-left-color:var(--dn-orange)}
+.itag{display:inline-block;font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--dn-blue);
+  background:var(--dn-blue-pale);border-radius:20px;padding:2px 9px;margin-bottom:8px}
+.ins.hot .itag{color:var(--dn-orange-mid);background:var(--dn-orange-pale)}
+.it{font-weight:600;color:var(--text-primary);font-size:.92rem;margin-bottom:5px}
+.ib{font-size:.8rem;color:var(--text-secondary);line-height:1.5}
+.isave{display:inline-block;margin-top:10px;background:var(--dn-orange-pale);color:var(--dn-orange-mid);font-weight:600;
+  font-size:.78rem;border-radius:var(--radius-sm);padding:5px 10px}
+[data-theme="dark"] .isave{background:rgba(255,94,31,.15);color:#FF8A5C}
+
+/* ---- heat map ---- */
+.hm-wrap{overflow-x:auto;padding-bottom:6px}
+table.hm{border-collapse:separate;border-spacing:3px;font-size:.76rem}
+table.hm th.col{font-weight:500;color:var(--text-secondary);font-size:.64rem;text-align:center;padding:4px 2px;white-space:nowrap}
+table.hm th.row{font-weight:500;text-align:right;padding:0 12px 0 4px;white-space:nowrap;color:var(--text-primary);
+  max-width:200px;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+table.hm td.cell{min-width:38px;height:32px;text-align:center;border-radius:6px;color:#fff;font-size:.62rem;font-weight:500;
+  cursor:pointer;transition:.12s}
+table.hm td.cell:hover{outline:2px solid var(--dn-blue-mid);outline-offset:1px;transform:scale(1.08);box-shadow:var(--shadow-card-hover)}
+.hint-chip{display:inline-flex;align-items:center;gap:6px;font-size:.7rem;font-weight:500;color:var(--dn-orange-mid);
+  background:var(--dn-orange-pale);border-radius:20px;padding:4px 12px;margin-left:10px;vertical-align:middle}
+.hint-chip .si{width:13px;height:13px;stroke:var(--dn-orange-mid)}
+[data-theme="dark"] .hint-chip{background:rgba(255,94,31,.15);color:#FF8A5C}
+[data-theme="dark"] .hint-chip .si{stroke:#FF8A5C}
+table.hm td.cell.empty{background:var(--table-head);cursor:default}
+table.hm td.cell.empty:hover{outline:none}
+table.hm th.rowtot,table.hm td.rowtot{font-weight:600;color:var(--text-primary);padding-left:14px;font-size:.72rem;text-align:right;white-space:nowrap}
+.legend{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:.72rem;color:var(--text-secondary)}
+.legend .scale{display:flex;height:12px;width:200px;border-radius:6px;overflow:hidden}
+.legend .scale span{flex:1}
+
+/* ---- charts grid ---- */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.chart-box{position:relative;height:300px}
+
+/* ---- recurring run-rate ---- */
+.rr-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:4px 0 18px}
+.rr-stat{background:var(--bg-card-alt);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 15px}
+.rr-stat .l{font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);font-weight:500}
+.rr-stat .v{font-size:1.5rem;font-weight:600;color:var(--text-primary);margin-top:3px;font-variant-numeric:tabular-nums}
+.rr-stat .s{font-size:.72rem;color:var(--text-secondary);margin-top:2px}
+.rr-grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(340px,1fr);gap:22px;align-items:start}
+@media(max-width:1100px){.rr-grid{grid-template-columns:1fr}}
+table.rr{width:100%;border-collapse:collapse;font-size:.8rem}
+table.rr th{text-align:left;color:var(--text-secondary);font-size:.66rem;text-transform:uppercase;letter-spacing:.03em;
+  padding:7px 9px;border-bottom:2px solid var(--border);white-space:nowrap}
+table.rr td{padding:7px 9px;border-bottom:1px solid var(--border);color:var(--text-primary)}
+table.rr td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.rr tbody tr{cursor:pointer}
+table.rr tbody tr:hover{background:var(--table-row-alt)}
+table.rr tfoot td{padding:9px;border-top:2px solid var(--border);font-weight:600;color:var(--text-primary)}
+.dlt{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:500;font-variant-numeric:tabular-nums}
+.dlt.up{background:rgba(229,40,46,.1);color:#E5282E}
+.dlt.down{background:rgba(102,250,0,.12);color:#3DAA00}
+.dlt.flat{background:var(--table-head);color:var(--text-secondary)}
+.dlt.new{background:var(--dn-orange-pale);color:var(--dn-orange-mid)}
+[data-theme="dark"] .dlt.down{background:rgba(102,198,26,.15);color:#8FE04B}
+[data-theme="dark"] .dlt.new{background:rgba(255,94,31,.16);color:#FF8B5C}
+.rr-merge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:.6rem;font-weight:500;
+  background:var(--dn-blue-pale);color:var(--dn-blue);vertical-align:middle}
+[data-theme="dark"] .rr-merge{background:rgba(0,102,250,.2);color:#7FB1FF}
+
+/* ---- drill ---- */
+#drill{display:none}
+#drill .dh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+#drill .close{cursor:pointer;color:var(--text-secondary);font-size:1.3rem;line-height:1;border:none;background:none}
+table.dt{width:100%;border-collapse:collapse;font-size:.8rem}
+table.dt th{text-align:left;color:var(--text-secondary);font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;
+  padding:8px 10px;border-bottom:2px solid var(--border);cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg-card)}
+table.dt td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-primary)}
+table.dt td.r{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.68rem;font-weight:500;background:var(--dn-blue-pale);color:var(--dn-blue)}
+[data-theme="dark"] .badge{background:rgba(0,102,250,.18);color:#7FB1FF}
+
+footer{text-align:center;padding:20px;color:var(--text-muted);font-size:.74rem}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <div class="topnav-brand">
+    <div><div class="topnav-title">Claude Cost Intelligence</div><div class="topnav-sub" id="hsub"></div></div>
+  </div>
+  <div class="topnav-right">
+    <span class="updated-pill" id="updated"></span>
+    <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()"></button>
+  </div>
+</header>
+
+<div class="controlbar">
+  <div class="cb-group">
+    <label>Rows (dimension)</label>
+    <select id="dim">
+      <option value="t">Topic</option>
+      <option value="job">Recurring task (each scheduled job)</option>
+      <option value="tool">Tool (Claude Code / Codex)</option>
+        <option value="proj">Project</option>
+      <option value="mdl">Model</option>
+      <option value="conn">Connector / tool</option>
+      <option value="ag">Main vs subagent</option>
+      <option value="id">Session (top by cost)</option>
+    </select>
+  </div>
+  <div class="cb-group">
+    <label>Cell metric</label>
+    <select id="metric">
+      <option value="c">Estimated cost ($)</option>
+      <option value="tot">Total tokens</option>
+      <option value="wrk">Output + fresh input</option>
+    </select>
+  </div>
+  <div class="cb-group">
+    <label>Time bucket</label>
+    <select id="bucket">
+      <option value="wk">Week</option>
+      <option value="mo">Month</option>
+      <option value="dy">Day (last 30)</option>
+    </select>
+  </div>
+  <div class="cb-group grow">
+    <label>Filter sessions</label>
+    <input id="filter" type="text" placeholder="name, topic, model..." autocomplete="off">
+    <div id="filterinfo"></div>
+  </div>
+</div>
+
+<main class="main">
+    <div class="banner" id="banner"></div>
+    <div class="alert-banner" id="feeAlert">
+      <svg class="si" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a1.5 1.5 0 0 0 1.3 2.3h17.8a1.5 1.5 0 0 0 1.3-2.3L13.7 3.9a1.5 1.5 0 0 0-2.6 0Z"/></svg>
+      <span id="feeAlertText"></span>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card">
+      <h2>Cost-reduction actions <span class="pill green">no quality trade-off</span></h2>
+      <div class="desc" id="insightsNote"></div>
+      <div class="ins-grid" id="insights"></div>
+    </div>
+
+    <div class="card">
+      <h2>Heat map <span class="badge" id="hmsub"></span><span class="hint-chip"><svg class="si" viewBox="0 0 24 24"><path d="M9 11.5 12.7 21l1.8-4.5L19 14.7 9 11.5ZM9 11.5 4 4l7.5 5"/><path d="M13 3v2M5.6 5.6l1.4 1.4M3 13h2"/></svg>Click any cell to see the tasks behind it</span></h2>
+      <div class="desc">Rows = selected dimension, columns = time bucket, color = the selected metric. Every cell is clickable: it opens a drill-down (at the bottom of the page) listing the actual sessions/tasks in that cell, their cost over time, and a sortable table. Row labels drill into the whole row. Tip: set Rows to <b>Recurring task</b> to track each scheduled job (wiki syncs, daily refreshes, watchers) as its own row over time.</div>
+      <div class="hm-wrap"><div id="heatmap"></div></div>
+      <div class="legend"><span>Low</span><div class="scale" id="legendscale"></div><span>High</span>
+        <span style="margin-left:14px">Hottest cells in <b style="color:var(--dn-orange)">orange</b></span></div>
+    </div>
+
+    <div class="card" id="rrcard">
+      <h2>Recurring task run-rate <span class="badge" id="rrwin"></span></h2>
+      <div class="desc">Every repeating job (a task name seen in 3+ sessions), costed over the <b>trailing 4 weeks</b> and normalized to a monthly run-rate. <b>vs prev</b> compares against the 4 weeks before that, so you can see which job is drifting up before it shows in the total. Click any bar or row to drill into its sessions. Renamed jobs are stitched into one series and marked <span class="rr-merge">merged</span>.</div>
+      <div class="rr-stats" id="rrstats"></div>
+      <div class="rr-grid">
+        <div id="rrchartbox" class="chart-box"><canvas id="cRunRate"></canvas></div>
+        <div id="rrtable"></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><h2>Cost by token type</h2><div class="desc" id="tokenTypeNote"></div><div class="chart-box"><canvas id="cTokenType"></canvas></div></div>
+      <div class="card"><h2 id="trendTitle">Cost trend</h2><div class="desc">Follows the time-bucket selector (week / month / day). Click a point to drill in.</div><div class="chart-box"><canvas id="cTrend"></canvas></div></div>
+      <div class="card"><h2>Cost by model over time</h2><div class="desc">How the model mix shifts across the selected time bucket (stacked by tier).</div><div class="chart-box"><canvas id="cModel"></canvas></div></div>
+      <div class="card"><h2>Cost by topic</h2><div class="desc">Share of spend by auto-classified topic. Click a slice to drill in.</div><div class="chart-box"><canvas id="cTopic"></canvas></div></div>
+    </div>
+
+    <div class="card" id="drill"><div class="dh"><h2 id="drilltitle"></h2><button class="close" onclick="document.getElementById('drill').style.display='none'">&times;</button></div><div id="drillbody"></div></div>
+</main>
+
+<footer>Real data from your Claude logs &middot; cost is a list-price estimate, not a bill</footer>
+
+<script>
+/*__DATA__*/
+const S=DATA.sessions;
+// Recurring-task aggregation level: a title shared by 3+ distinct sessions is one recurring
+// job (same portable heuristic as the server-side recurring detection -- no topic names
+// hardcoded). Each session gets s.job = its job name, or '(one-off sessions)'.
+// Renamed jobs are stitched: if job A stops and job B starts within 14 days and their titles
+// share most of their words, they are the same job under a new name -- otherwise a rename
+// silently resets the cost history, which is exactly what this view exists to prevent.
+const JOB_MERGED=new Set();
+(function(){
+  const byTitle={};
+  S.forEach(s=>{const t=(s.title||'').trim().toLowerCase();
+    if(t){(byTitle[t]=byTitle[t]||new Set()).add(s.sid);}});
+  const recur=[...new Set(Object.keys(byTitle).filter(t=>byTitle[t].size>=3))];
+  const canon={}; // first-seen display casing per recurring title
+  S.forEach(s=>{const raw=(s.title||'').trim(), t=raw.toLowerCase();
+    if(t&&recur.includes(t)&&!canon[t])canon[t]=raw;});
+  // span of each recurring title
+  const span={}; recur.forEach(t=>span[t]={f:'9999',l:'0'});
+  S.forEach(s=>{const t=(s.title||'').trim().toLowerCase();
+    if(span[t]){if(s.dy<span[t].f)span[t].f=s.dy; if(s.dy>span[t].l)span[t].l=s.dy;}});
+  const words=t=>new Set(t.split(/[^a-z0-9]+/).filter(w=>w.length>2));
+  const overlap=(a,b)=>{const A=words(a),B=words(b); if(!A.size||!B.size)return 0;
+    let n=0; A.forEach(w=>{if(B.has(w))n++;}); return n/Math.min(A.size,B.size);};
+  const days=(a,b)=>(Date.parse(b)-Date.parse(a))/864e5;
+  // successor -> predecessor, then collapse chains onto the newest name
+  const rename={};
+  recur.forEach(b=>recur.forEach(a=>{
+    if(a===b||rename[b])return;
+    const gap=days(span[a].l,span[b].f);
+    if(gap>=0&&gap<=14&&days(span[b].f,span[b].l)>=0&&overlap(a,b)>=0.6) rename[b]=a;
+  }));
+  const alias={}; // old title -> newest title in its chain
+  Object.keys(rename).forEach(newT=>{let old=rename[newT];
+    while(rename[old]) old=rename[old];   // walk to the oldest
+    alias[old]=newT;});
+  // chain forward: every old title in a chain maps to the final (newest) name
+  let changed=true; while(changed){changed=false;
+    Object.keys(alias).forEach(o=>{const n=alias[o]; if(alias[n]&&alias[n]!==o){alias[o]=alias[n];changed=true;}});}
+  Object.keys(rename).forEach(newT=>{let old=rename[newT]; alias[old]=alias[old]||newT;});
+  S.forEach(s=>{const raw=(s.title||'').trim(); let t=raw.toLowerCase();
+    if(t&&alias[t]){JOB_MERGED.add(canon[alias[t]]||alias[t]); t=alias[t];}
+    s.job=(t&&canon[t])?canon[t]:'(one-off sessions)';});
+})();
+let DIM='t',MET='c',BUC='wk',FILTER='';
+
+document.getElementById('hsub').textContent='Real usage from your local agent transcripts (Claude Code, Codex, ...)';
+document.getElementById('updated').textContent='Updated '+DATA.generated;
+document.getElementById('banner').innerHTML='<b>Real data.</b> '+DATA.kpi.nsess+' sessions, '+
+  DATA.dmin+' to '+DATA.dmax+', generated '+DATA.generated+'. Cost is a list-price estimate '+
+  '(rates per M tokens are in the script PRICING table; cache-write &times;1.25, cache-read &times;0.10; synthetic turns $0), not an invoice. '+
+  'Topics are auto-classified from session titles ('+DATA.kpi.titled+'/'+DATA.kpi.nsess+' titled).';
+
+function fmtMetric(v,m){if(m==='c')return '$'+(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0));
+  return v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(0)+'M':v>=1e3?(v/1e3).toFixed(0)+'k':v.toFixed(0);}
+function fmtFull(v,m){return m==='c'?'$'+v.toLocaleString(undefined,{maximumFractionDigits:0}):Math.round(v).toLocaleString()+' tok';}
+function bLabel(k,b){if(b==='mo'){const[y,m]=k.split('-');return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+" '"+y.slice(2);}
+  const d=new Date(k+'T00:00:00Z');return (d.getUTCMonth()+1)+'/'+d.getUTCDate();}
+
+function activeRows(){
+  let d = BUC==='dy' ? S.filter(s=>s.dy>=DATA.cut30) : S;
+  if(FILTER) d = d.filter(s=>((s.id+' '+s.t+' '+s.conn+' '+s.mdl+' '+(s.proj||'')+' '+(s.tool||'')+' '+(s.job||'')).toLowerCase().indexOf(FILTER)>=0));
+  return d;
+}
+
+const BLUE_RAMP=['#E8F0FE','#BED6F9','#8FB8F5','#5C97F0','#2E78EA','#0066FA','#0044B8','#002E7A'];
+function ramp(f){if(f<=0)return 'var(--table-head)';return BLUE_RAMP[Math.min(7,Math.floor(f*8))];}
+
+function topSessionLabels(){
+  const rows=activeRows();const byId={};rows.forEach(s=>byId[s.id]=(byId[s.id]||0)+s.c);
+  const n=FILTER?60:18;
+  return new Set(Object.entries(byId).sort((a,b)=>b[1]-a[1]).slice(0,n).map(e=>e[0]));
+}
+
+function buildMatrix(){
+  const data=activeRows();
+  const buckets=[...new Set(data.map(s=>s[BUC]))].sort();
+  let keep=null; if(DIM==='id') keep=topSessionLabels();
+  const cell={},rowTot={},colTot={},byCell={};
+  data.forEach(s=>{let r=s[DIM]; if(DIM==='id'&&!keep.has(r))r='(other sessions)';
+    const b=s[BUC],v=s[MET];
+    (cell[r]=cell[r]||{}); cell[r][b]=(cell[r][b]||0)+v;
+    rowTot[r]=(rowTot[r]||0)+v; colTot[b]=(colTot[b]||0)+v;
+    const ck=r+'|'+b;(byCell[ck]=byCell[ck]||[]).push(s);});
+  const rows=Object.keys(rowTot).sort((a,b)=>rowTot[b]-rowTot[a]);
+  return {buckets,rows,cell,rowTot,byCell};
+}
+
+function renderHeatmap(){
+  const M=buildMatrix();window._M=M;
+  document.getElementById('hmsub').textContent={t:'topic',job:'recurring task',proj:'project',tool:'tool',mdl:'model',conn:'connector',ag:'main vs subagent',id:'session'}[DIM]+' x '+{wk:'week',mo:'month',dy:'day'}[BUC];
+  const fa=activeRows();
+  document.getElementById('filterinfo').innerHTML = FILTER
+    ? ('Filter <b>'+FILTER+'</b> &rarr; '+fa.length+' sessions, $'+fa.reduce((a,s)=>a+s.c,0).toLocaleString(undefined,{maximumFractionDigits:0}))
+    : '';
+  if(FILTER && fa.length===0){ document.getElementById('heatmap').innerHTML='<div style="padding:24px;color:var(--text-secondary)">No sessions match \''+FILTER+'\'.</div>'; return; }
+  let max=0;M.rows.forEach(r=>M.buckets.forEach(b=>{const v=(M.cell[r]||{})[b]||0;if(v>max)max=v;}));
+  const top=max*0.82;
+  let h='<table class="hm"><thead><tr><th class="row"></th>';
+  M.buckets.forEach(b=>h+='<th class="col">'+bLabel(b,BUC)+'</th>');
+  h+='<th class="rowtot">Total</th></tr></thead><tbody>';
+  M.rows.forEach(r=>{const rj=r.replace(/'/g,"\\'");
+    h+='<tr><th class="row" title="'+r+' (click for cost over time)" onclick="openDrillDim(\''+rj+'\')">'+r+'</th>';
+    M.buckets.forEach(b=>{const v=(M.cell[r]||{})[b]||0;
+      if(v<=0){h+='<td class="cell empty"></td>';return;}
+      const f=v/max,isTop=v>=top,bg=isTop?'var(--dn-orange)':ramp(f);
+      const darkText=!isTop&&f<0.5; // light ramp shades -> dark text for readability
+      h+='<td class="cell" style="background:'+bg+(darkText?';color:#17335F':'')+'" onclick="openDrillDim(\''+rj+'\',\''+b+'\')" title="Click to drill down: '+r+' &middot; '+bLabel(b,BUC)+': '+fmtFull(v,MET)+' -- opens the list of tasks in this '+{wk:"week",mo:"month",dy:"day"}[BUC]+'">'+fmtMetric(v,MET)+'</td>';});
+    h+='<td class="rowtot">'+fmtMetric(M.rowTot[r],MET)+'</td></tr>';});
+  h+='</tbody></table>';
+  document.getElementById('heatmap').innerHTML=h;
+  document.getElementById('legendscale').innerHTML=BLUE_RAMP.map(c=>'<span style="background:'+c+'"></span>').join('');
+}
+
+let drillChart=null;
+const DRILL_COLS=[['id','Session',0],['dy','Date',0],['mdl','Model',0],['conn','Connector',0],['c','Cost',1],['tot','Tokens',1]];
+function sortDrill(col){const st=window._drillSort;if(st.col===col){st.dir=st.dir==='desc'?'asc':'desc';}else{st.col=col;st.dir='desc';}renderDrillTable();}
+function expandDrill(){window._drillShowAll=!window._drillShowAll;renderDrillTable();}
+const DRILL_PAGE=25;
+function renderDrillTable(){
+  const list=window._drillList, st=window._drillSort, showAll=window._drillShowAll;
+  const numeric={c:1,tot:1};
+  const sorted=list.slice().sort((a,b)=>{
+    let cmp = numeric[st.col] ? (a[st.col]-b[st.col]) : String(a[st.col]).localeCompare(String(b[st.col]),undefined,{numeric:true,sensitivity:'base'});
+    return st.dir==='desc' ? -cmp : cmp;
+  });
+  const arrow=c=> st.col===c ? (st.dir==='desc'?' ▼':' ▲') : '';
+  const shown = showAll ? sorted : sorted.slice(0,DRILL_PAGE);
+  let h='<div style="'+(showAll&&sorted.length>DRILL_PAGE?'max-height:60vh;overflow:auto;':'')+'"><table class="dt"><thead><tr>';
+  DRILL_COLS.forEach(([k,lbl,num])=>{h+='<th'+(num?' class="r"':'')+' onclick="sortDrill(\''+k+'\')">'+lbl+arrow(k)+'</th>';});
+  h+='</tr></thead><tbody>';
+  shown.forEach(s=>{h+='<tr><td>'+s.id+'</td><td>'+s.dy+'</td><td>'+s.mdl+'</td><td><span class="badge">'+s.conn+'</span></td><td class="r">$'+s.c.toFixed(2)+'</td><td class="r">'+(s.tot/1e6).toFixed(2)+'M</td></tr>';});
+  h+='</tbody></table></div>';
+  if(sorted.length>DRILL_PAGE){
+    h+='<div style="text-align:center;padding:10px"><a href="#" onclick="expandDrill();return false;" style="color:var(--dn-blue);font-weight:500;cursor:pointer;font-size:.84rem">'
+      + (showAll ? 'Show fewer' : ('Show all '+sorted.length+' sessions')) + '</a></div>';
+  }
+  document.getElementById('drilltablewrap').innerHTML=h;
+}
+let _dAll=[], _dBucket=null, _dTitle="";
+function openDrillDim(row, bucket){
+  const data=activeRows();
+  let keep=null; if(DIM==='id') keep=topSessionLabels();
+  _dAll=data.filter(s=>{let r=s[DIM]; if(DIM==='id'&&!keep.has(r))r='(other sessions)'; return r===row;});
+  _dBucket=bucket||null; _dTitle=row; renderDrill();
+}
+function openDrillFilter(field,val,label){
+  _dAll=activeRows().filter(s=>s[field]===val); _dBucket=null; _dTitle=label; renderDrill();
+}
+function openDrillBucket(b){
+  const bucStr={wk:'week',mo:'month',dy:'day'}[BUC];
+  _dAll=activeRows().filter(s=>s[BUC]===b); _dBucket=b; _dTitle='All topics '+bucStr; renderDrill();
+}
+function renderDrill(){
+  const all=_dAll;
+  const byB={}; all.forEach(s=>{byB[s[BUC]]=(byB[s[BUC]]||0)+s.c;});
+  const bk=Object.keys(byB).sort();
+  const scoped = _dBucket ? all.filter(s=>s[BUC]===_dBucket) : all;
+  const tc=scoped.reduce((a,x)=>a+x.c,0), tt=scoped.reduce((a,x)=>a+x.tot,0);
+  const _agg={};
+  scoped.forEach(s=>{const o=_agg[s.sid]||(_agg[s.sid]={id:s.id,dy:s.dy,mdl:s.mdl,conn:s.conn,c:0,tot:0});
+    o.c+=s.c; o.tot+=s.tot; if(s.dy>o.dy){o.dy=s.dy; o.mdl=s.mdl; o.conn=s.conn;}});
+  const tableRows=Object.values(_agg);
+  const bucStr={wk:'week',mo:'month',dy:'day'}[BUC];
+  document.getElementById('drill').style.display='block';
+  document.getElementById('drilltitle').innerHTML=_dTitle+' <span style="color:var(--text-secondary);font-weight:400">&middot; '+(_dBucket?(bucStr+' of '+bLabel(_dBucket,BUC)):'cost over time')+'</span>';
+  let h='<div style="font-size:.9rem;margin-bottom:4px"><b style="color:var(--text-primary);font-size:1.25rem">$'+tc.toLocaleString(undefined,{maximumFractionDigits:0})+'</b> '+(_dBucket?('in '+bucStr+' '+bLabel(_dBucket,BUC)):'total cost')+'</div>';
+  h+='<div style="font-size:.8rem;color:var(--text-secondary);margin-bottom:6px">'+(tt/1e6).toFixed(1)+'M tokens &middot; '+tableRows.length+' sessions'+(_dBucket?' active in this '+bucStr:' across '+bk.length+' '+bucStr+'s')+'</div>';
+  h+='<div style="font-size:.72rem;color:var(--text-muted);margin-bottom:12px">Click a bar to filter the list to that '+bucStr+(_dBucket?'; click it again to clear':'')+'.</div>';
+  h+='<div class="chart-box" style="height:200px;margin-bottom:16px"><canvas id="drillCanvas"></canvas></div>';
+  h+='<div id="drilltablewrap"></div>';
+  document.getElementById('drillbody').innerHTML=h;
+  window._drillList=tableRows; window._drillSort={col:'dy',dir:'desc'}; window._drillShowAll=false;
+  renderDrillTable();
+  if(drillChart)drillChart.destroy();
+  drillChart=new Chart(document.getElementById('drillCanvas'),{type:'bar',
+    data:{labels:bk.map(k=>bLabel(k,BUC)),datasets:[{label:'Cost',data:bk.map(k=>byB[k]),
+      backgroundColor:bk.map(k=>k===_dBucket?'#FF5E1F':'#0066FA'),borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      onClick:(e,els)=>{ if(els&&els.length){ const b=bk[els[0].index]; _dBucket=(_dBucket===b?null:b); renderDrill(); } },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+c.raw.toFixed(0)}}},
+      scales:{y:{ticks:{callback:v=>'$'+v,color:'var(--chart-text)'},grid:{color:'var(--chart-grid)'}},
+              x:{ticks:{maxRotation:60,autoSkip:true,maxTicksLimit:18,color:'var(--chart-text)'},grid:{display:false}}}}});
+  document.getElementById('drill').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function renderKPIs(){
+  const k=DATA.kpi;
+  const overFee=k.feedelta>=0;
+  const savingsPossible=k.totalsavings>0;
+  const hasBudget=k.flatfee>0;
+  document.getElementById('feeAlert').style.display=(hasBudget&&overFee)?'':'none';
+  const feeEndLabel=!k.flatfeeends?'':new Date(k.flatfeeends+'T00:00:00Z').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('feeAlertText').innerHTML='Run-rate is <b>$'+k.recentmonthly.toLocaleString()+'/mo</b> ('+k.feemultiple+'x the $'+k.flatfee+'/mo budget)'+(k.flatfeeends?' &mdash; budget ends <b>'+feeEndLabel+'</b>':'')+'.';
+  // Recurring vs ad-hoc split and the 4-week trajectory, on the same trailing-28-day basis
+  // as the "Recurring task run-rate" card lower down, so the two never disagree.
+  const R=rrData();
+  const recPct=R.allRate?Math.round(R.recRate/R.allRate*100):0;
+  const nJobs=R.rows.filter(r=>r.rate>0).length;
+  const items=[
+    {cls:'blue',n:'$'+k.recentmonthly.toLocaleString()+'/mo',l:'Current monthly run-rate',
+      s:'$'+k.mtdcost.toLocaleString()+' MTD through day '+k.dayselapsed+' of '+k.daysinmonth
+        +' &middot; headline = last 7 days &middot; 4-wk avg $'+Math.round(R.allRate).toLocaleString()+'/mo'
+        +' &middot; $'+k.costpertask.toFixed(2)+'/task',
+      t:trjChip(R.allRate,R.allPrevRate,'4-wk avg vs prior 4 wks')},
+    hasBudget?{cls:'orange',n:(overFee?'+':'-')+'$'+Math.abs(k.feedelta).toLocaleString(),l:'vs. $'+k.flatfee+'/mo budget',
+      s:'$'+k.recentmonthly.toLocaleString()+'/mo run-rate vs the $'+k.flatfee+' budget ('+k.feemultiple+'x)'+(feeEndLabel?' &middot; ends '+feeEndLabel:'')}
+    :{cls:'orange',n:'$'+k.costpercall.toFixed(3),l:'Cost per call',s:k.ncalls.toLocaleString()+' assistant messages &middot; $'+k.costpertask.toFixed(2)+'/session'},
+    {cls:'dark',n:'$'+Math.round(R.recRate).toLocaleString()+'/mo',l:'Recurring tasks &middot; '+recPct+'% of spend',
+      s:nJobs?(nJobs+' scheduled job'+(nJobs===1?'':'s')+' &middot; $'+Math.round(R.adhocRate).toLocaleString()+'/mo is ad-hoc work')
+             :('no repeating tasks detected &middot; all $'+Math.round(R.adhocRate).toLocaleString()+'/mo is ad-hoc work'),
+      b:'<div class="splitbar" title="'+recPct+'% recurring / '+(100-recPct)+'% ad-hoc"><i style="width:'+recPct+'%"></i></div>',
+      t:nJobs?trjChip(R.recRate,R.recPrevRate,'vs prior 4 wks'):''},
+    {cls:'teal',n:(savingsPossible?'$'+k.totalsavings.toLocaleString():'$0')+'/mo',l:'Potential savings if fully optimized',
+      s:savingsPossible?('would cut the run-rate to ~$'+k.projectedmonthly.toLocaleString()+'/mo'+(hasBudget?' ('+k.projectedfeemultiple+'x the budget)':''))
+                       :'no recurring/model-routing levers detected in the recent window'},
+  ];
+  document.getElementById('kpis').innerHTML=items.map(x=>'<div class="kpi-card '+x.cls+'"><div class="num">'+x.n+'</div><div class="lbl">'+x.l+'</div>'+(x.s?'<div class="sub">'+x.s+'</div>':'')+(x.b||'')+(x.t||'')+'</div>').join('');
+}
+
+let charts={};
+function dz(id){if(charts[id])charts[id].destroy();}
+const CHART_PALETTE=['#0066FA','#FF5E1F','#8896A8','#BED6F9','#FBBF24','#CC4B19','#6B7280','#0044B8','#D97706','#62CFF6'];
+function palette(n){return Array.from({length:n},(_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]);}
+function gridColor(){return getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();}
+function textColor(){return getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim();}
+
+function chTokenType(){
+  const e=Object.entries(DATA.tokentype);dz('cTokenType');
+  const cacheTotal=e.filter(x=>x[0].toLowerCase().includes('cache')).reduce((a,x)=>a+x[1],0);
+  const total=e.reduce((a,x)=>a+x[1],0);
+  document.getElementById('tokenTypeNote').innerHTML='Cache read+write is ~'+Math.round(cacheTotal/total*100)+'% of spend, not generation. <b>Your lever:</b> carry less context, load only the connectors/tools a task needs, keep prompts scoped, and split long marathon sessions so history is not re-read every turn.';
+  charts.cTokenType=new Chart(cTokenType,{type:'doughnut',data:{labels:e.map(x=>x[0]),datasets:[{data:e.map(x=>x[1]),backgroundColor:['#0066FA','#00A0FA','#BED6F9','#FF5E1F'],borderWidth:0}]},
+   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:textColor()}},tooltip:{callbacks:{label:c=>c.label+': $'+c.raw+' ('+(c.raw/c.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(0)+'%)'}}}}});
+}
+function chTrend(){
+  const rows=activeRows(); const by={}; rows.forEach(s=>{by[s[BUC]]=(by[s[BUC]]||0)+s.c;});
+  const bk=Object.keys(by).sort(); dz('cTrend');
+  document.getElementById('trendTitle').textContent='Cost trend by '+{wk:'week',mo:'month',dy:'day'}[BUC];
+  charts.cTrend=new Chart(cTrend,{type:'line',data:{labels:bk.map(k=>bLabel(k,BUC)),datasets:[{data:bk.map(k=>by[k]),borderColor:'#0066FA',backgroundColor:'rgba(0,102,250,0.1)',fill:true,tension:0.3,pointRadius:3,borderWidth:2.5}]},
+   options:{responsive:true,maintainAspectRatio:false,onHover:(e,el)=>{e.native.target.style.cursor=el.length?'pointer':'default';},
+     onClick:(e,els)=>{if(els&&els.length) openDrillBucket(bk[els[0].index]);},
+     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+c.raw.toFixed(0)}}},
+     scales:{y:{ticks:{callback:v=>'$'+v,color:textColor()},grid:{color:gridColor()}},x:{ticks:{maxRotation:60,autoSkip:true,maxTicksLimit:18,color:textColor()},grid:{display:false}}}}});
+}
+function chModel(){
+  const rows=activeRows(); const bk=[...new Set(rows.map(s=>s[BUC]))].sort();
+  const tiers=[...new Set(rows.map(s=>s.mdl))];
+  const order=["opus","fable","sonnet","haiku","synthetic"];
+  tiers.sort((a,b)=>(order.indexOf(a)+1||99)-(order.indexOf(b)+1||99));
+  const cell={}; rows.forEach(s=>{(cell[s.mdl]=cell[s.mdl]||{});cell[s.mdl][s[BUC]]=(cell[s.mdl][s[BUC]]||0)+s.c;});
+  dz('cModel');
+  charts.cModel=new Chart(cModel,{type:'bar',
+    data:{labels:bk.map(k=>bLabel(k,BUC)),datasets:tiers.map((t,i)=>({label:t,data:bk.map(k=>(cell[t]||{})[k]||0),backgroundColor:CHART_PALETTE[i%CHART_PALETTE.length],borderRadius:3,stack:'m'}))},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+     onClick:(ev,els)=>{if(els&&els.length){const m=tiers[els[0].datasetIndex];openDrillFilter('mdl',m,'Model: '+m);}},
+     plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},color:textColor()}},tooltip:{callbacks:{label:c=>c.dataset.label+': $'+c.raw.toFixed(0)}}},
+     scales:{x:{stacked:true,ticks:{maxRotation:60,autoSkip:true,maxTicksLimit:18,color:textColor()},grid:{display:false}},y:{stacked:true,ticks:{callback:v=>'$'+v,color:textColor()},grid:{color:gridColor()}}}}});
+}
+function chTopic(){
+  const e=Object.entries(DATA.topiccost);dz('cTopic');
+  charts.cTopic=new Chart(cTopic,{type:'pie',data:{labels:e.map(x=>x[0]),datasets:[{data:e.map(x=>x[1]),backgroundColor:palette(e.length),borderWidth:1,borderColor:getComputedStyle(document.documentElement).getPropertyValue('--bg-card')}]},
+   options:{responsive:true,maintainAspectRatio:false,onHover:(e,el)=>{e.native.target.style.cursor=el.length?'pointer':'default';},
+     onClick:(ev,els)=>{if(els&&els.length){const t=e[els[0].index][0];openDrillFilter('t',t,t);}},
+     plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:10},color:textColor()}},tooltip:{callbacks:{label:c=>c.label+': $'+c.raw+' ('+(c.raw/c.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(0)+'%)'}}}}});
+}
+
+// ---- recurring task run-rate (trailing 4 weeks, normalized to a month) ----
+const RR_WIN=28, RR_MONTH=30.44;
+function rrData(){
+  const end=Date.parse(DATA.dmax), day=864e5;
+  const curFrom=end-(RR_WIN-1)*day, prvTo=curFrom-day, prvFrom=prvTo-(RR_WIN-1)*day;
+  const j={};
+  S.forEach(s=>{
+    if(s.job==='(one-off sessions)')return;
+    const d=Date.parse(s.dy);
+    const o=j[s.job]||(j[s.job]={name:s.job,cur:0,prv:0,runs:new Set(),days:new Set()});
+    if(d>=curFrom&&d<=end){o.cur+=s.c;o.runs.add(s.sid);o.days.add(s.dy);}
+    else if(d>=prvFrom&&d<=prvTo){o.prv+=s.c;}
+  });
+  const K=RR_MONTH/RR_WIN;
+  const rows=Object.values(j).filter(o=>o.cur>0||o.prv>0)
+    .map(o=>({name:o.name,rate:o.cur*K,prate:o.prv*K,cur:o.cur,runs:o.runs.size,days:o.days.size,
+              merged:JOB_MERGED.has(o.name)}))
+    .sort((a,b)=>b.rate-a.rate);
+  let allCur=0, allPrv=0;
+  S.forEach(s=>{const d=Date.parse(s.dy);
+    if(d>=curFrom&&d<=end)allCur+=s.c; else if(d>=prvFrom&&d<=prvTo)allPrv+=s.c;});
+  const recRate=rows.reduce((a,r)=>a+r.rate,0), recPrev=rows.reduce((a,r)=>a+r.prate,0);
+  return {rows:rows,allRate:allCur*K,allPrevRate:allPrv*K,recRate:recRate,recPrevRate:recPrev,
+          adhocRate:Math.max(0,allCur*K-recRate),adhocPrevRate:Math.max(0,allPrv*K-recPrev),
+          from:new Date(curFrom).toISOString().slice(0,10),to:DATA.dmax,
+          prevFrom:new Date(prvFrom).toISOString().slice(0,10),prevTo:new Date(prvTo).toISOString().slice(0,10)};
+}
+// percent change, and a white trajectory chip for the gradient KPI cards. Falling cost is the
+// good direction here, so the arrow points down when spend is dropping -- no red/green, because
+// on a gradient card the colour would fight the card's own hue.
+function pct(cur,prev){return prev>0.5?(cur-prev)/prev*100:null;}
+const ARR_DOWN='<svg viewBox="0 0 24 24"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>';
+const ARR_UP='<svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const ARR_FLAT='<svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg>';
+function trjChip(cur,prev,label){
+  const p=pct(cur,prev);
+  if(p===null) return '<div class="trj">'+ARR_FLAT+'no prior period</div>';
+  const flat=Math.abs(p)<5;
+  const icon=flat?ARR_FLAT:(p<0?ARR_DOWN:ARR_UP);
+  const txt=flat?'flat':((p>0?'+':'')+p.toFixed(0)+'%');
+  return '<div class="trj">'+icon+txt+' '+(label||'')+'</div>';
+}
+function dltChip(rate,prate){
+  if(prate<0.5) return rate>0?'<span class="dlt new">new</span>':'<span class="dlt flat">--</span>';
+  if(rate<=0) return '<span class="dlt down">stopped</span>';
+  const p=(rate-prate)/prate*100;
+  if(Math.abs(p)<5) return '<span class="dlt flat">flat</span>';
+  return '<span class="dlt '+(p>0?'up':'down')+'">'+(p>0?'+':'')+p.toFixed(0)+'%</span>';
+}
+function renderRunRate(){
+  const D=rrData(), rows=D.rows.filter(r=>r.rate>0);
+  document.getElementById('rrwin').textContent=D.from+' to '+D.to;
+  // Empty state: a user with no scheduled/repeating work should get an explanation, not an
+  // empty chart and a header-only table.
+  if(!rows.length){
+    document.getElementById('rrstats').innerHTML='';
+    document.getElementById('rrchartbox').style.display='none';
+    document.getElementById('rrtable').innerHTML=
+      '<div class="desc" style="margin:0"><b>No repeating tasks in the last 4 weeks.</b> A task counts as recurring '
+      +'once the same session name shows up in 3 or more sessions -- typically a scheduled job or a '
+      +'refresh you run on a cadence. Until then all of your spend is ad-hoc, and the heat map above '
+      +'is the better view.</div>';
+    return;
+  }
+  document.getElementById('rrchartbox').style.display='';
+  const tot=rows.reduce((a,r)=>a+r.rate,0), ptot=D.rows.reduce((a,r)=>a+r.prate,0);
+  const share=D.allRate?tot/D.allRate*100:0;
+  const top=rows[0];
+  document.getElementById('rrstats').innerHTML=
+    '<div class="rr-stat"><div class="l">All recurring tasks</div><div class="v">$'+tot.toFixed(0)+'<span style="font-size:.8rem;font-weight:400;color:var(--text-secondary)">/mo</span></div>'
+      +'<div class="s">'+dltChip(tot,ptot)+' vs previous 4 weeks</div></div>'
+   +'<div class="rr-stat"><div class="l">Share of all spend</div><div class="v">'+share.toFixed(0)+'%</div>'
+      +'<div class="s">of a $'+D.allRate.toFixed(0)+'/mo total run-rate</div></div>'
+   +'<div class="rr-stat"><div class="l">Active recurring tasks</div><div class="v">'+rows.length+'</div>'
+      +'<div class="s">'+rows.reduce((a,r)=>a+r.runs,0)+' runs in the last 4 weeks</div></div>'
+   +'<div class="rr-stat"><div class="l">Most expensive task</div><div class="v" style="font-size:1.05rem;line-height:1.3">'+(top?top.name:'--')+'</div>'
+      +'<div class="s">'+(top?'$'+top.rate.toFixed(0)+'/mo &middot; $'+(top.cur/top.runs).toFixed(2)+' per run':'')+'</div></div>';
+
+  document.getElementById('rrchartbox').style.height=Math.max(240,46+rows.length*40)+'px';
+  dz('cRunRate');
+  const maxR=Math.max(...rows.map(r=>r.rate));
+  charts.cRunRate=new Chart(document.getElementById('cRunRate'),{type:'bar',
+    data:{labels:rows.map(r=>r.name),datasets:[
+      {label:'Previous 4 wks',data:rows.map(r=>r.prate),backgroundColor:'#BED6F9',borderRadius:3},
+      {label:'Current 4 wks',data:rows.map(r=>r.rate),backgroundColor:rows.map(r=>r.rate>=maxR?'#FF5E1F':'#0066FA'),borderRadius:3}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      onHover:(e,el)=>{e.native.target.style.cursor=el.length?'pointer':'default';},
+      onClick:(e,els)=>{if(els&&els.length)openDrillFilter('job',rows[els[0].index].name,rows[els[0].index].name);},
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},color:textColor()}},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': $'+c.raw.toFixed(0)+'/mo'}}},
+      scales:{x:{ticks:{callback:v=>'$'+v,color:textColor()},grid:{color:gridColor()},title:{display:true,text:'monthly run-rate',color:textColor(),font:{size:10}}},
+              y:{ticks:{color:textColor(),font:{size:10},callback:function(v){const l=this.getLabelForValue(v);return l.length>26?l.slice(0,25)+'…':l;}},grid:{display:false}}}}});
+
+  let h='<table class="rr"><thead><tr><th>Recurring task</th><th class="r" title="distinct sessions in the last 4 weeks">Runs</th><th class="r">$/run</th><th class="r">$/mo</th><th class="r">vs prev</th></tr></thead><tbody>';
+  rows.forEach(r=>{h+='<tr onclick="openDrillFilter(\'job\','+JSON.stringify(r.name).replace(/"/g,'&quot;')+','+JSON.stringify(r.name).replace(/"/g,'&quot;')+')">'
+    +'<td>'+r.name+(r.merged?'<span class="rr-merge" title="renamed job, stitched into one series">merged</span>':'')+'</td>'
+    +'<td class="r">'+r.runs+'</td><td class="r">$'+(r.cur/r.runs).toFixed(2)+'</td>'
+    +'<td class="r"><b>$'+r.rate.toFixed(0)+'</b></td><td class="r">'+dltChip(r.rate,r.prate)+'</td></tr>';});
+  // only surface a job that stopped if it was actually material before (>= $5/mo)
+  const stopped=D.rows.filter(r=>r.rate<=0&&r.prate>=5);
+  stopped.forEach(r=>{h+='<tr style="opacity:.6" onclick="openDrillFilter(\'job\','+JSON.stringify(r.name).replace(/"/g,'&quot;')+','+JSON.stringify(r.name).replace(/"/g,'&quot;')+')">'
+    +'<td>'+r.name+'</td><td class="r">0</td><td class="r">--</td><td class="r">$0</td>'
+    +'<td class="r"><span class="dlt down">stopped</span></td></tr>';});
+  h+='</tbody><tfoot><tr><td>All recurring tasks</td><td class="r">'+rows.reduce((a,r)=>a+r.runs,0)+'</td><td class="r"></td>'
+    +'<td class="r">$'+tot.toFixed(0)+'</td><td class="r">'+dltChip(tot,ptot)+'</td></tr></tfoot></table>';
+  document.getElementById('rrtable').innerHTML=h;
+}
+
+function rerenderCharts(){chTrend();chModel();}
+document.getElementById('dim').onchange=e=>{DIM=e.target.value;document.getElementById('drill').style.display='none';renderHeatmap();};
+document.getElementById('metric').onchange=e=>{MET=e.target.value;document.getElementById('drill').style.display='none';renderHeatmap();};
+document.getElementById('bucket').onchange=e=>{BUC=e.target.value;document.getElementById('drill').style.display='none';renderHeatmap();rerenderCharts();};
+document.getElementById('filter').oninput=e=>{FILTER=e.target.value.trim().toLowerCase();document.getElementById('drill').style.display='none';renderHeatmap();rerenderCharts();};
+
+function renderInsights(){
+  document.getElementById('insightsNote').innerHTML=DATA.insights_note||'';
+  document.getElementById('insights').innerHTML=(DATA.insights||[]).map((x,i)=>
+    '<div class="ins'+(i===0?' hot':'')+'"><div class="itag">'+x.tag+'</div><div class="it">'+x.t+'</div><div class="ib">'+x.b+'</div>'+
+    (x.save?'<div class="isave">Est. savings <b>~$'+x.save.toLocaleString()+'/mo</b></div>':'')+'</div>').join('');
+}
+
+const MOON='<svg class="si" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>';
+const SUN='<svg class="si" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme', isDark?'light':'dark');
+  document.getElementById('themeBtn').innerHTML = isDark ? MOON : SUN;
+  applyChartTheme();
+}
+function applyChartTheme(){
+  const tc=textColor(), gc=gridColor();
+  Chart.defaults.color=tc;
+  Object.values(charts).forEach(c=>{
+    if(c.options.scales){Object.values(c.options.scales).forEach(s=>{if(s.grid)s.grid.color=gc;if(s.ticks)s.ticks.color=tc;});}
+    if(c.options.plugins&&c.options.plugins.legend&&c.options.plugins.legend.labels)c.options.plugins.legend.labels.color=tc;
+    c.update('none');
+  });
+}
+document.getElementById('themeBtn').innerHTML=MOON;
+
+renderKPIs();renderInsights();renderHeatmap();renderRunRate();chTokenType();chTrend();chModel();chTopic();
+</script>
+</body>
+</html>
