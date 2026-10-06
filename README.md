@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.13.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.13.1** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -397,6 +397,53 @@ putting `ste` on the first line of `~/.claude/forgeloop/style`. The rules are in
 [`styles/ste.md`](styles/ste.md). They apply to chat replies only, not to code,
 commands, or commit messages.
 
+## Setup and Team Rollout
+
+ForgeLoop needs no manual settings changes. Every feature works out of the box, and each
+one has an off switch or a file under `~/.claude/forgeloop/`:
+
+| Feature | Needs settings? | Off switch or file |
+|---------|-----------------|--------------------|
+| Session conventions (`SessionStart` hook) | No | `FORGELOOP_CONVENTIONS=off`; personal layer `~/.claude/forgeloop/conventions.md` |
+| ASD-STE100 answer style | No (opt-in) | `FORGELOOP_STYLE=ste` or `~/.claude/forgeloop/style`; off by default |
+| Cost heat map refresh (background hook) | No | `FORGELOOP_COST_HEATMAP=off` |
+| Session cost band (mod) | Only on Claude Code older than 2.1.287: `env.CLAUDE_CODE_ENABLE_FUNCTION_HOOKS="1"` | `FORGELOOP_COST_BAND=off` |
+| Setup hint (one line, once per version) | No | `FORGELOOP_SETUP_HINT=off` |
+| Skills and agents (`plan-loop`, `implement-loop`, `debug-loop`, `cluster-loop`, ...) | No | Not loaded unless invoked; nothing to switch off |
+
+**Setup.** Run `/forgeloop:setup` in a session. It prints the exact changes to
+`~/.claude/settings.json` (the env flag for an old CLI, the plugin entries
+`extraKnownMarketplaces.forgeloop` and `enabledPlugins`), asks for approval, then writes
+with a timestamped backup (`settings.json.forgeloop-bak-<UTC time>`). The ASD-STE100 style
+file is created only if you opt in. `/forgeloop:setup --check` writes nothing. You can
+also run the script in a terminal: `python3 skills/setup/forgeloop_setup.py plan`, then
+`apply` (add `--ste` for the style). It only adds absent keys, never changes an existing
+value, and refuses to touch a settings file that is not strict JSON.
+
+**Setup hint.** On the first session after each ForgeLoop version, the `SessionStart`
+hook runs the same check read-only. If something is pending, it adds one line to the
+session: "ForgeLoop: settings need a one-time check. Run /forgeloop:setup." It tracks the
+version in `~/.claude/forgeloop/setup-stamp`, never writes `settings.json`, and does
+nothing if `claude --version` fails or takes over 2 s. Set `FORGELOOP_SETUP_HINT=off` to
+disable it.
+
+**Team rollout.** Commit this to the repo's `.claude/settings.json` so every teammate
+is offered the marketplace and the plugin is enabled (`/forgeloop:setup --team-snippet`
+prints it):
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "forgeloop": { "source": { "source": "github", "repo": "yhadad-dn/forgeloop" } }
+  },
+  "enabledPlugins": { "forgeloop@forgeloop": true }
+}
+```
+
+**Managed settings.** IT can set the same keys in managed settings, which take
+precedence over user, project and local settings. ForgeLoop never writes managed
+settings.
+
 ## Cluster Status
 
 ```bash
@@ -447,6 +494,7 @@ With `install.sh`, the same files land in the repo:
   skills/cluster-loop/
   skills/codex-model-check/
   skills/cost-heatmap/              # cost_heatmap.py + dashboard template
+  skills/setup/                     # forgeloop_setup.py (/forgeloop:setup)
   agents/developer.md
   agents/refactorer.md
   agents/explorer.md

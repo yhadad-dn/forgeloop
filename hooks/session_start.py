@@ -7,11 +7,17 @@ Layers, later wins on conflict:
   3. the "## Conventions" section of <project>/.claude/forgeloop.md (repo)
 Set FORGELOOP_CONVENTIONS=off to disable.
 
+Setup hint: on the first session after each ForgeLoop version, the hook checks (read only)
+whether /forgeloop:setup has anything to apply and, if so, adds one line to the context.
+It never writes settings.json; it writes only ~/.claude/forgeloop/setup-stamp.
+Set FORGELOOP_SETUP_HINT=off to disable.
+
 Optional answer style: when FORGELOOP_STYLE=ste, or the first line of
 ~/.claude/forgeloop/style is "ste", the plugin's styles/ste.md (ASD-STE100) is added
 after the team layer. Any other value, or no setting, adds nothing.
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -37,13 +43,46 @@ def style_layer(root: Path) -> str:
     return read(root / "styles" / "ste.md") if name == "ste" else ""
 
 
+SETUP_HINT = "ForgeLoop: settings need a one-time check. Run /forgeloop:setup."
+OFF = ("off", "0", "false", "no")
+
+
+def setup_hint(root: Path, home: Path) -> str:
+    """Return the one-line hint, or '' (nothing pending, already shown for this version,
+    FORGELOOP_SETUP_HINT=off, or any error). Writes only ~/.claude/forgeloop/setup-stamp."""
+    try:
+        if os.environ.get("FORGELOOP_SETUP_HINT", "").strip().lower() in OFF:
+            return ""
+        version = str(json.loads(read(root / ".claude-plugin" / "plugin.json"))["version"])
+        stamp = home / ".claude" / "forgeloop" / "setup-stamp"
+        if read(stamp) == version:
+            return ""
+        path = root / "skills" / "setup" / "forgeloop_setup.py"
+        spec = importlib.util.spec_from_file_location("forgeloop_setup", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["forgeloop_setup"] = mod
+        spec.loader.exec_module(mod)
+        cli = mod.detect_cli_version(timeout=2.0)
+        if cli is None:
+            return ""
+        settings, err = mod.load_settings(str(home / ".claude" / "settings.json"))
+        if settings is None:
+            return ""
+        pending = any(c.status == "pending" for c in mod.compute_changes(settings, str(home), cli, False))
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(version + "\n", encoding="utf-8")
+        return SETUP_HINT if pending else ""
+    except Exception:
+        return ""
+
+
 def repo_section(text: str) -> str:
     m = re.search(r"^## Conventions\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
     return m.group(1).strip() if m else ""
 
 
 def main() -> int:
-    if os.environ.get("FORGELOOP_CONVENTIONS", "").lower() in ("off", "0", "false", "no"):
+    if os.environ.get("FORGELOOP_CONVENTIONS", "").lower() in OFF:
         return 0
     root = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", Path(__file__).resolve().parents[1]))
     try:
@@ -65,11 +104,13 @@ def main() -> int:
     repo = repo_section(read(project / ".claude" / "forgeloop.md"))
     if repo:
         layers.append("## Repo conventions (override the above)\n\n" + repo)
-    if not layers:
+    hint = setup_hint(root, Path.home())
+    if not layers and not hint:
         return 0
 
+    context = (HEADER + "\n\n".join(layers) + ("\n\n" + hint if hint else "")) if layers else hint
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",
-                                             "additionalContext": HEADER + "\n\n".join(layers)}}))
+                                             "additionalContext": context}}))
     return 0
 
 

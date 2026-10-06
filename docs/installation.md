@@ -11,9 +11,14 @@ In Claude Code:
 
 This repo is its own marketplace (it's also distributed to the DriveNets team
 via the `gpu-team` marketplace). Skills are then available as `/forgeloop:plan-loop`, `/forgeloop:implement-loop`,
-`/forgeloop:debug-loop`, `/forgeloop:cluster-loop`, `/forgeloop:codex-model-check`, and `/forgeloop:cost-heatmap`.
+`/forgeloop:debug-loop`, `/forgeloop:cluster-loop`, `/forgeloop:codex-model-check`, `/forgeloop:cost-heatmap`, and `/forgeloop:setup`.
 Agents are named `forgeloop:developer`, `forgeloop:refactorer`, `forgeloop:reviewer-*`,
 and so on. Update with `/plugin marketplace update forgeloop`, then `/reload-plugins`.
+
+No settings edit is needed. `/forgeloop:setup` shows and applies the few optional
+user settings (it asks first and keeps a backup), and the README section "Setup and Team
+Rollout" ([README.md](../README.md)) has the audit table, the project
+`.claude/settings.json` snippet for a team, and the managed-settings note.
 
 For development, load your working copy for one session without installing:
 

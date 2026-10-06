@@ -11,6 +11,9 @@ const format = (l: CostLine): string => {
 }
 
 async function refresh($: EngineInterface): Promise<void> {
+  if ((await $.env.get('FORGELOOP_COST_BAND'))?.toLowerCase() === 'off') {
+    return
+  }
   const usage = await $.session.usage()
   const current: CostLine = {
     usd: usage.cost?.usd ?? 0,
@@ -34,6 +37,9 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if ((await $.env.get('FORGELOOP_COST_BAND'))?.toLowerCase() === 'off') {
+      return next(e)
+    }
     const current = await read($, line)
     if (e.props.hasSurvey || current === null) {
       return next(e)

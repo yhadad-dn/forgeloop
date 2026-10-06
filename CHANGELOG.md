@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.13.1
+
+- **No manual settings changes**: every ForgeLoop feature works with no edit to
+  `settings.json`, and each one has an off switch or file (audit table in the README).
+  New `FORGELOOP_COST_BAND=off` switches the session cost band off.
+- **`/forgeloop:setup` skill** (`skills/setup/forgeloop_setup.py`, stdlib only): `plan`
+  shows the exact diff, `apply` writes it after approval with a timestamped backup,
+  `--check` writes nothing and exits 1 when something is pending, `--team-snippet` prints
+  the JSON for a repo's `.claude/settings.json`. User scope only; refuses to touch a
+  settings file that is not strict JSON.
+- **Setup hint**: the `SessionStart` hook checks once per ForgeLoop version (stamp in
+  `~/.claude/forgeloop/setup-stamp`) and adds one line telling you to run
+  `/forgeloop:setup` when something is pending. It never writes settings and fails open.
+  `FORGELOOP_SETUP_HINT=off` disables it.
+- Documented team rollout (`extraKnownMarketplaces`, `enabledPlugins`) and managed settings.
+
 ## 0.13.0
 
 - **Opt-in ASD-STE100 answer style**: `styles/ste.md` holds the rules; the
