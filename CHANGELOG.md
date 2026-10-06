@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.0
+
+- **Opt-in ASD-STE100 answer style**: `styles/ste.md` holds the rules; the
+  `SessionStart` hook adds them after the team conventions when `FORGELOOP_STYLE=ste`
+  or the first line of `~/.claude/forgeloop/style` is `ste`. Off by default. Covers
+  chat replies only (not code, commands, or commit messages), and keeps the content
+  complete: plain words must not remove a fact, risk, or trade-off.
+
 ## 0.12.0
 
 - **Live session cost above the prompt**: a mod module (`hooks/session_cost.tsx`,

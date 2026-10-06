@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.12.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.13.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -389,6 +389,13 @@ Once installed, ForgeLoop adds its conventions to every session through a
 Layers, later wins: the plugin's `conventions.md` (team default), your
 `~/.claude/forgeloop/conventions.md` (personal), and the `## Conventions` section of
 a repo's `.claude/forgeloop.md`. Set `FORGELOOP_CONVENTIONS=off` to disable.
+
+**Answer style (opt-in):** Claude can write every chat reply in ASD-STE100 Simplified
+Technical English: short sentences, active voice, one word per meaning, no idioms, and
+no hidden risks. It is off by default. Turn it on with `FORGELOOP_STYLE=ste` or by
+putting `ste` on the first line of `~/.claude/forgeloop/style`. The rules are in
+[`styles/ste.md`](styles/ste.md). They apply to chat replies only, not to code,
+commands, or commit messages.
 
 ## Cluster Status
 

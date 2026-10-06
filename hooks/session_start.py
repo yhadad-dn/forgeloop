@@ -6,6 +6,10 @@ Layers, later wins on conflict:
   2. ~/.claude/forgeloop/conventions.md (personal)
   3. the "## Conventions" section of <project>/.claude/forgeloop.md (repo)
 Set FORGELOOP_CONVENTIONS=off to disable.
+
+Optional answer style: when FORGELOOP_STYLE=ste, or the first line of
+~/.claude/forgeloop/style is "ste", the plugin's styles/ste.md (ASD-STE100) is added
+after the team layer. Any other value, or no setting, adds nothing.
 """
 
 import json
@@ -23,6 +27,14 @@ def read(path: Path) -> str:
         return path.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+def style_layer(root: Path) -> str:
+    name = os.environ.get("FORGELOOP_STYLE", "").strip().lower()
+    if not name:
+        lines = read(Path.home() / ".claude" / "forgeloop" / "style").splitlines()
+        name = lines[0].strip().lower() if lines else ""
+    return read(root / "styles" / "ste.md") if name == "ste" else ""
 
 
 def repo_section(text: str) -> str:
@@ -44,6 +56,9 @@ def main() -> int:
     team = read(root / "conventions.md")
     if team:
         layers.append(team.replace("{CLUSTER_STATUS}", str(root / "skills" / "cluster-loop" / "cluster_status.py")))
+    style = style_layer(root)
+    if style:
+        layers.append(style)
     personal = read(Path.home() / ".claude" / "forgeloop" / "conventions.md")
     if personal:
         layers.append("## Personal conventions (override the above)\n\n" + personal)

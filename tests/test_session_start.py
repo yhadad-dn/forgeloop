@@ -54,6 +54,16 @@ class SessionStartHookTests(unittest.TestCase):
         self.assertLess(personal, repo)
         self.assertNotIn("## Gates", ctx)              # only the Conventions section is taken
 
+    def test_ste_style_off_by_default_on_via_env_or_file(self):
+        self.assertNotIn("ASD-STE100", self.run_hook())
+        self.assertIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="ste"))
+        self.assertNotIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="other"))
+        (self.home / ".claude" / "forgeloop").mkdir(parents=True)
+        (self.home / ".claude" / "forgeloop" / "style").write_text("ste\n")
+        ctx = self.run_hook()
+        self.assertIn("ASD-STE100", ctx)
+        self.assertLess(ctx.index("## Status reports"), ctx.index("ASD-STE100"))
+
     def test_off_switch(self):
         self.assertIsNone(self.run_hook(FORGELOOP_CONVENTIONS="off"))
 
