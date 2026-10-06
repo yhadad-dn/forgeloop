@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.13.1** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.13.2** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -102,6 +102,8 @@ It is designed for high-stakes repos where "looks good" is not enough.
   re-run. It never auto-commits or auto-stashes, and ForgeLoop's own artifacts under
   `.claude/clean-code/`, `.claude/run-proofs/`, `.claude/plans/` and
   `.claude/debug-reports/` never trigger it.
+  Untracked files under `.claude/` never block (for example session-state files);
+  tracked changes there still do.
 - **Run-proof gate**: `implement-loop` runs the task's `RUN_PROOF` command locally
   (CPU) or inside a SLURM allocation via `cluster-loop` (GPU), and judges every pass
   criterion against quoted log evidence.

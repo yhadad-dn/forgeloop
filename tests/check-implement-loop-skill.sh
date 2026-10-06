@@ -527,6 +527,21 @@ check \
     "$REPO_ROOT/README.md" \
     'clean working tree at start'
 
+check \
+    "implement-loop.md clean-tree check filters untracked .claude paths (grep -Ev)" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    'grep -Ev .*\\\.claude/'
+
+check \
+    "implement-loop.md says untracked files under .claude never block while tracked changes still do" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    '[Uu]ntracked files under `\.claude/` never block'
+
+check \
+    "README says untracked files under .claude never block while tracked changes still do" \
+    "$REPO_ROOT/README.md" \
+    '[Uu]ntracked files under `\.claude/` never block'
+
 plugin_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
     "$REPO_ROOT/.claude-plugin/plugin.json")"
 check \

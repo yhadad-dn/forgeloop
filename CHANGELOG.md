@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.2
+
+- **Clean-tree check ignores untracked `.claude/` files**: the `implement-loop` Stage 0
+  check no longer blocks on untracked files under any `.claude/` directory (for example
+  `.claude/session_state_*.md` from the session-continuity hook). Tracked, staged and
+  other changes still block, as do look-alike paths such as `.claude.bak/`.
+
 ## 0.13.1
 
 - **No manual settings changes**: every ForgeLoop feature works with no edit to

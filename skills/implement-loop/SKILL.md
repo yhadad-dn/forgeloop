@@ -98,14 +98,16 @@ Extract or derive:
    invocation. Run from inside the target repo:
 
 ```bash
-# Returns 0 if the tree is clean outside ForgeLoop artifact paths; otherwise prints
-# the offending `git status --porcelain` lines to stdout and returns 1.
+# Returns 0 if the tree is clean outside ForgeLoop artifact paths and untracked .claude
+# files; otherwise prints the offending `git status --porcelain` lines to stdout and
+# returns 1.
 assert_clean_tree() {
   local top out
   top="$(git rev-parse --show-toplevel)" || return 2
   out="$(git -C "$top" status --porcelain --untracked-files=all -- . \
     ':(exclude,glob)**/.claude/clean-code/**' ':(exclude,glob)**/.claude/run-proofs/**' \
     ':(exclude,glob)**/.claude/plans/**' ':(exclude,glob)**/.claude/debug-reports/**')" || return 2
+  out="$(printf '%s\n' "$out" | grep -Ev '^\?\? "?([^"]*/)?\.claude/' || true)"
   [ -z "$out" ] && return 0
   printf '%s\n' "$out"
   return 1
@@ -117,6 +119,9 @@ assert_clean_tree() {
    alter the user's tree. The pathspec excludes ForgeLoop's own artifact directories (glob
    form, so nested `**/.claude/...` dirs under a subdirectory cwd are covered too), so a
    prior run's leftovers never block, even in repos that do not gitignore them.
+   Untracked files under `.claude/` never block (any depth, for example
+   `.claude/session_state_*.md`), whether or not the repo gitignores them; tracked
+   changes and staged files under `.claude/` still do.
 6. Run Stage 0.5 before implementation.
 
 Initialize:

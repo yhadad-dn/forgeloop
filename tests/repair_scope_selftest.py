@@ -43,6 +43,12 @@ Three scenarios:
    with no `.gitignore` and with this repo's real `.gitignore` (where plain
    `git status --porcelain` is empty and `snapshot_tree()` omits them).
 
+6. The same block must NOT block on untracked files under any `.claude/` directory
+   (6a: root, nested, spaces in the name; from root and from a subdirectory), and must
+   still block on a modified tracked `.claude` file (6b), a newly staged `.claude` file
+   (6c), look-alike paths `.claude.bak/` and `foo.claude/` (6d) and a dirty source file
+   next to untracked `.claude` files (6e).
+
 stdlib only: subprocess, tempfile, os, sys, shutil, re, fnmatch.
 """
 
@@ -645,6 +651,96 @@ def scenario_subdir_artifacts_do_not_block(skill_md):
         shutil.rmtree(repo_dir, ignore_errors=True)
 
 
+def scenario_untracked_claude_files_do_not_block(skill_md: str) -> None:
+    """Scenario 6: untracked .claude files never block; tracked changes, staged files,
+    look-alike paths and real source files still do."""
+    func_src = clean_tree_check_source(skill_md)
+    untracked = [
+        ".claude/session_state_x.md",
+        "sub/.claude/y",
+        ".claude/my file.md",
+    ]
+
+    # 6a: untracked .claude files, no .gitignore, from root and from sub/.
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_untracked_claude_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, "sub/keep.txt", "tracked\n")
+        run(["git", "add", "sub/keep.txt"], cwd=repo_dir)
+        run(["git", "commit", "-q", "-m", "sub"], cwd=repo_dir)
+        for rel in untracked:
+            write_file(repo_dir, rel, "state\n")
+        for where, cwd in (("root", repo_dir), ("sub/", os.path.join(repo_dir, "sub"))):
+            rc, out = run_clean_tree_check(cwd, func_src)
+            check(
+                f"scenario 6a: untracked .claude files (session state, nested, spaces) from {where} do not block (exit 0)",
+                rc == 0, f"rc={rc} out={out!r}",
+            )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+    # 6b: modified tracked .claude/forgeloop.md still blocks.
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_tracked_claude_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, ".claude/forgeloop.md", "v1\n")
+        run(["git", "add", ".claude/forgeloop.md"], cwd=repo_dir)
+        run(["git", "commit", "-q", "-m", "forgeloop"], cwd=repo_dir)
+        write_file(repo_dir, ".claude/forgeloop.md", "v2\n")
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check(
+            "scenario 6b: modified tracked .claude/forgeloop.md blocks (exit 1) and is listed",
+            rc == 1 and ".claude/forgeloop.md" in out, f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+    # 6c: newly staged .claude/z.md blocks.
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_staged_claude_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, ".claude/z.md", "z\n")
+        run(["git", "add", ".claude/z.md"], cwd=repo_dir)
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check(
+            "scenario 6c: newly staged .claude/z.md blocks (exit 1) and is listed",
+            rc == 1 and ".claude/z.md" in out, f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+    # 6d: look-alike paths are not ignored.
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_lookalike_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, ".claude.bak/x", "x\n")
+        write_file(repo_dir, "foo.claude/x", "x\n")
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check(
+            "scenario 6d: look-alike .claude.bak/x and foo.claude/x block (exit 1) and are listed",
+            rc == 1 and ".claude.bak/x" in out and "foo.claude/x" in out,
+            f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+    # 6e: dirty source next to untracked .claude files.
+    repo_dir = tempfile.mkdtemp(prefix="clean_tree_src_dirty_claude_")
+    try:
+        init_repo(repo_dir)
+        write_file(repo_dir, "src/a.py", "x = 1\n")
+        for rel in untracked:
+            write_file(repo_dir, rel, "state\n")
+        rc, out = run_clean_tree_check(repo_dir, func_src)
+        check(
+            "scenario 6e: dirty src/a.py blocks (exit 1), is listed, and .claude paths are not",
+            rc == 1 and "src/a.py" in out and ".claude" not in out,
+            f"rc={rc} out={out!r}",
+        )
+    finally:
+        shutil.rmtree(repo_dir, ignore_errors=True)
+
+
 def main() -> int:
     clean_code_md = read(CLEAN_CODE_MD)
     stage_r_md = read(STAGE_R_MD)
@@ -661,6 +757,7 @@ def main() -> int:
     scenario_subdir_dirty_tree_blocks(skill_md)
     scenario_subdir_artifacts_do_not_block(skill_md)
     scenario_prior_run_artifacts_do_not_block(skill_md, gitignore_src, snapshot_src)
+    scenario_untracked_claude_files_do_not_block(skill_md)
 
     print("")
     if FAILURES:
