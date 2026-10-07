@@ -149,12 +149,25 @@ else
     bad "every skill-relative file reference resolves" "$(head -5 <<<"$broken")"
 fi
 
+if grep -qE '^## 0\.15\.0$' "$REPO_ROOT/CHANGELOG.md"; then
+    ok "CHANGELOG has a 0.15.0 section"
+else
+    bad "CHANGELOG has a 0.15.0 section"
+fi
+
 # --- Session conventions hook ---------------------------------------------------------
 if python3 -m json.tool "$REPO_ROOT/hooks/hooks.json" >/dev/null 2>&1 \
         && grep -q "session_start.py" "$REPO_ROOT/hooks/hooks.json"; then
     ok "hooks/hooks.json registers the SessionStart conventions hook"
 else
     bad "hooks/hooks.json registers the SessionStart conventions hook"
+fi
+
+if python3 -c 'import json,sys; h=json.load(open(sys.argv[1]))["hooks"]["SessionStart"][0]["hooks"]; sys.exit(0 if any("session_picker.py" in x["command"] and x.get("timeout")==10 for x in h) else 1)' "$REPO_ROOT/hooks/hooks.json" \
+        && [[ -f "$REPO_ROOT/hooks/session_picker.py" && -f "$REPO_ROOT/hooks/session_state.py" ]]; then
+    ok "hooks/hooks.json registers the session picker; picker and helper files exist"
+else
+    bad "hooks/hooks.json registers the session picker; picker and helper files exist"
 fi
 
 conv_lines="$(wc -l < "$REPO_ROOT/conventions.md")"

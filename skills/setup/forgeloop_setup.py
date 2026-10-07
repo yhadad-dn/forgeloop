@@ -35,6 +35,7 @@ DURABLE_COPIES = (  # (source relative to plugin root, name under ~/.claude/forg
     ("scripts/forgeloop-vscode-wrapper.sh", "vscode-wrapper.sh", 0o755),
     ("skills/tmux-session/forgeloop_tmux.py", "forgeloop_tmux.py", 0o644),
 )
+OLD_HOOK_MARK = "session-continuity/session_start.py"
 MARKETPLACE_ENTRY = {"source": {"source": "github", "repo": REPO}}
 
 
@@ -42,11 +43,78 @@ MARKETPLACE_ENTRY = {"source": {"source": "github", "repo": REPO}}
 class Change:
     item: str          # "env-flag" | "ste-style" | "marketplace" | "enabled-plugin"
                        # | "durable-wrapper" | "durable-setting"
+                       # | "session-allow-rule" | "retire-session-hook"
     target: str        # settings key path or file path
     before: object
     after: object
     reason: str
     status: str        # "pending" | "ok" | "unknown" | "blocked"
+
+
+def session_rule(root):
+    return f"Bash(python3 {root}/hooks/session_state.py:*)"
+
+
+def _session_rule_change(settings):
+    rule = session_rule(PLUGIN_ROOT)
+    perms = settings.get("permissions")
+    if " " in str(PLUGIN_ROOT):
+        return Change("session-allow-rule", "permissions.allow", None, rule,
+                      "plugin path contains a space, so the rule cannot match the picker's commands; not added", "blocked")
+    if perms is not None and not isinstance(perms, dict):
+        return Change("session-allow-rule", "permissions.allow", perms, rule,
+                      "'permissions' is not an object; left alone", "blocked")
+    has_allow = bool(perms) and "allow" in perms
+    allow = perms.get("allow") if has_allow else None
+    if has_allow and not isinstance(allow, list):
+        return Change("session-allow-rule", "permissions.allow", allow, rule,
+                      "'permissions.allow' is not a list; left alone", "blocked")
+    if allow and rule in allow:
+        return Change("session-allow-rule", "permissions.allow", rule, rule, "already present", "ok")
+    return Change("session-allow-rule", "permissions.allow", None, rule,
+                  "lets the session picker delete and load saved sessions without a prompt", "pending")
+
+
+def _retire_hook_change(settings):
+    target = "hooks.SessionStart"
+    hooks = settings.get("hooks")
+    if hooks is None:
+        return Change("retire-session-hook", target, None, None, "no SessionStart hooks", "ok")
+
+    def blocked(why):
+        return Change("retire-session-hook", target, None, None, why + "; left alone", "blocked")
+
+    if not isinstance(hooks, dict):
+        return blocked("'hooks' is not an object")
+    groups = hooks.get("SessionStart")
+    if groups is None:
+        return Change("retire-session-hook", target, None, None, "no SessionStart hooks", "ok")
+    if not isinstance(groups, list):
+        return blocked("'hooks.SessionStart' is not a list")
+    out, found = [], False
+    for g in groups:
+        if not isinstance(g, dict):
+            return blocked("a SessionStart group is not an object")
+        entries = g.get("hooks")
+        if entries is None:
+            out.append(g)
+            continue
+        if not isinstance(entries, list):
+            return blocked("a SessionStart group's 'hooks' is not a list")
+        if not all(isinstance(e, dict) for e in entries):
+            return blocked("a SessionStart hook entry is not an object")
+        kept = [e for e in entries
+                if not (isinstance(e.get("command"), str) and OLD_HOOK_MARK in e["command"])]
+        if len(kept) == len(entries):
+            out.append(g)
+            continue
+        found = True
+        if kept:
+            out.append({**g, "hooks": kept})
+    if not found:
+        return Change("retire-session-hook", target, groups, groups, "old session picker hook not present", "ok")
+    return Change("retire-session-hook", target, groups, out,
+                  "removes the old personal session picker hook; ForgeLoop now provides it", "pending")
 
 
 def parse_version(text):
@@ -184,7 +252,7 @@ def compute_changes(settings, home, cli_version, want_ste, want_durable=False):
 
 
 def _user_changes(settings, home, cli_version, want_ste):
-    changes = []
+    changes = [_session_rule_change(settings), _retire_hook_change(settings)]
     env = settings.get("env")
     target = f"env.{FLAG}"
     if env is not None and not isinstance(env, dict):
@@ -247,7 +315,7 @@ def _user_changes(settings, home, cli_version, want_ste):
 def render_diff(changes):
     out = []
     for c in changes:
-        out.append(f"{c.status:8} {c.item:15} {c.target}")
+        out.append(f"{c.status:8} {c.item:20} {c.target}")
         if c.status == "pending":
             out.append(f"         - {json.dumps(c.before)}" if c.before is not None else "         - (absent)")
             out.append(f"         + {json.dumps(c.after)}")
@@ -322,7 +390,12 @@ def apply_changes(settings_path, home, changes):
     if not pending:
         return ""
     backups = []
-    settings_items = [c for c in pending if c.item in ("env-flag", "marketplace", "enabled-plugin")]
+    settings_names = ("env-flag", "marketplace", "enabled-plugin", "session-allow-rule", "retire-session-hook")
+    other_names = ("ste-style", "durable-wrapper", "durable-setting")
+    for c in pending:
+        if c.item not in settings_names + other_names:
+            raise ValueError(f"unknown change item: {c.item}")
+    settings_items = [c for c in pending if c.item in settings_names]
     if settings_items:
         settings, err = load_settings(settings_path)
         if settings is None:
@@ -337,6 +410,20 @@ def apply_changes(settings_path, home, changes):
                 settings.setdefault("extraKnownMarketplaces", {})[MARKETPLACE] = c.after
             elif c.item == "enabled-plugin":
                 settings.setdefault("enabledPlugins", {})[PLUGIN_KEY] = c.after
+            elif c.item == "session-allow-rule":
+                perms = settings.setdefault("permissions", {})
+                if not isinstance(perms, dict) or not isinstance(perms.setdefault("allow", []), list):
+                    raise ValueError("'permissions' or 'permissions.allow' has the wrong type")
+                if c.after not in perms["allow"]:
+                    perms["allow"].append(c.after)
+            elif c.item == "retire-session-hook":
+                hooks = settings.get("hooks")
+                if not isinstance(hooks, dict):
+                    raise ValueError("'hooks' is not an object")
+                if c.after:
+                    hooks["SessionStart"] = c.after
+                else:
+                    hooks.pop("SessionStart", None)
         _atomic_write(sp, json.dumps(settings, indent=2) + "\n")
     for c in pending:
         if c.item == "ste-style":

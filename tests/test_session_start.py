@@ -161,7 +161,8 @@ class SetupHintTests(unittest.TestCase):
         self.fake_claude("2.1.290 (Claude Code)")
         self.settings.write_text(json.dumps({
             "extraKnownMarketplaces": {"forgeloop": {"source": {"source": "github", "repo": "yhadad-dn/forgeloop"}}},
-            "enabledPlugins": {"forgeloop@forgeloop": True}}))
+            "enabledPlugins": {"forgeloop@forgeloop": True},
+            "permissions": {"allow": ["Bash(python3 %s/hooks/session_state.py:*)" % ROOT]}}))
         self.assertNotIn(HINT, self.run_hook() or "")
         self.assertTrue(self.stamp.exists())
 

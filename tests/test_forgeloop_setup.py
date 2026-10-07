@@ -92,6 +92,7 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(list(merged)[:3], ["zeta", "env", "alpha"])
         self.assertEqual(merged["env"], {"KEEP": "x", "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1"})
         self.assertEqual(merged["alpha"], {"deep": [1, 2]})
+        self.assertEqual(merged["permissions"]["allow"], [load_module().session_rule(ROOT)])
         self.assertTrue(merged["enabledPlugins"]["forgeloop@forgeloop"])
         src = merged["extraKnownMarketplaces"]["forgeloop"]["source"]
         self.assertEqual(src, {"source": "github", "repo": "yhadad-dn/forgeloop"})
@@ -148,7 +149,11 @@ class SetupTests(unittest.TestCase):
         ch = m.compute_changes({"enabledPlugins": {"forgeloop@gpu-team": True}}, h, (2, 1, 290), False)
         self.assertEqual(self.status(ch, "enabled-plugin"), ["ok"])
         self.assertEqual(self.status(ch, "marketplace"), ["ok"])
-        self.settings.write_text(json.dumps({"enabledPlugins": {"forgeloop@gpu-team": True}}))
+        # the session items are still reported on this early-return path
+        self.assertEqual(self.status(ch, "session-allow-rule"), ["pending"])
+        self.assertEqual(self.status(ch, "retire-session-hook"), ["ok"])
+        self.settings.write_text(json.dumps({"enabledPlugins": {"forgeloop@gpu-team": True},
+                                            "permissions": {"allow": [m.session_rule(m.PLUGIN_ROOT)]}}))
         before = self.settings.read_text()
         self.assertEqual(self.cli("--check", version="2.1.290").returncode, 0)
         self.assertEqual(self.cli("apply", version="2.1.290").returncode, 0)
@@ -175,13 +180,158 @@ class SetupTests(unittest.TestCase):
         data = json.loads(target.read_text())
         self.assertEqual(data["theme"], "dark")
         self.assertTrue(data["enabledPlugins"]["forgeloop@forgeloop"])
+        self.assertIn(load_module().session_rule(ROOT), data["permissions"]["allow"])
         self.assertEqual(len(list(real_dir.glob("settings.json.forgeloop-bak-*"))), 1)
         self.assertEqual(list(self.settings.parent.glob("*.forgeloop-bak-*")), [])
+
+    # ---- session picker items (allow rule, retire old hook) ----
+
+    OLD_CMD = "python3 /home/u/.claude/hooks/session-continuity/session_start.py"
+
+    def rule(self):
+        m = load_module()
+        return m.session_rule(m.PLUGIN_ROOT)
+
+    def test_session_rule_pending_then_ok_after_apply(self):
+        m = load_module()
+        h = str(self.home)
+        self.assertEqual(m.session_rule(Path("/x/y")), "Bash(python3 /x/y/hooks/session_state.py:*)")
+        ch = m.compute_changes({}, h, (2, 1, 290), False)
+        c = [c for c in ch if c.item == "session-allow-rule"][0]
+        self.assertEqual((c.status, c.after, c.target), ("pending", self.rule(), "permissions.allow"))
+        self.settings.write_text(json.dumps({"permissions": {"allow": ["Bash(ls:*)"], "deny": ["x"]}}))
+        self.assertEqual(self.cli("apply", version="2.1.290").returncode, 0)
+        data = json.loads(self.settings.read_text())
+        self.assertEqual(data["permissions"], {"allow": ["Bash(ls:*)", self.rule()], "deny": ["x"]})
+        ch = m.compute_changes(data, h, (2, 1, 290), False)
+        self.assertEqual(self.status(ch, "session-allow-rule"), ["ok"])
+
+    def test_session_rule_blocked_on_wrong_type_or_space_in_root(self):
+        m = load_module()
+        h = str(self.home)
+        for bad in ({"permissions": "x"}, {"permissions": {"allow": "x"}}, {"permissions": []},
+                    {"permissions": {"allow": None}}, {"permissions": {"allow": {}}}):
+            ch = m.compute_changes(bad, h, (2, 1, 290), False)
+            self.assertEqual(self.status(ch, "session-allow-rule"), ["blocked"], bad)
+            self.settings.write_text(json.dumps(bad))
+            self.assertEqual(self.cli("apply", version="2.1.290").returncode, 0)
+            self.assertEqual(json.loads(self.settings.read_text()).get("permissions"), bad["permissions"])
+        with mock.patch.object(m, "PLUGIN_ROOT", Path("/with space/plugin")):
+            ch = m.compute_changes({}, h, (2, 1, 290), False)
+            self.assertEqual(self.status(ch, "session-allow-rule"), ["blocked"])
+            m.apply_changes(str(self.settings), h, ch)
+        self.assertNotIn("with space", self.settings.read_text())
+
+    def test_retire_old_hook_removes_only_old_command(self):
+        m = load_module()
+        h = str(self.home)
+        keep = {"type": "command", "command": "python3 /plugin/hooks/session_start.py"}
+        other_group = {"matcher": "startup", "hooks": [keep]}
+        mixed = {"hooks": [{"type": "command", "command": self.OLD_CMD}, keep]}
+        only_old = {"hooks": [{"type": "command", "command": self.OLD_CMD}]}
+        settings = {"hooks": {"SessionStart": [other_group, mixed, only_old], "Stop": [{"hooks": []}]},
+                    "permissions": {"allow": [self.rule()]}}
+        ch = m.compute_changes(settings, h, (2, 1, 290), False)
+        c = [c for c in ch if c.item == "retire-session-hook"][0]
+        self.assertEqual((c.status, c.target), ("pending", "hooks.SessionStart"))
+        self.assertEqual(c.after, [other_group, {"hooks": [keep]}])
+        self.settings.write_text(json.dumps(settings))
+        self.assertEqual(self.cli("apply", version="2.1.290").returncode, 0)
+        data = json.loads(self.settings.read_text())
+        self.assertEqual(data["hooks"]["SessionStart"], [other_group, {"hooks": [keep]}])
+        self.assertEqual(data["hooks"]["Stop"], [{"hooks": []}])
+        # removing the last entry deletes the key
+        self.settings.write_text(json.dumps({"hooks": {"SessionStart": [only_old], "Stop": []},
+                                             "permissions": {"allow": [self.rule()]}}))
+        self.cli("apply", version="2.1.290")
+        self.assertEqual(json.loads(self.settings.read_text())["hooks"], {"Stop": []})
+        ch = m.compute_changes(json.loads(self.settings.read_text()), h, (2, 1, 290), False)
+        self.assertEqual(self.status(ch, "retire-session-hook"), ["ok"])
+
+    def test_apply_is_idempotent_and_writes_backup(self):
+        original = {"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": self.OLD_CMD}]}]},
+                    "enabledPlugins": {"forgeloop@forgeloop": True},
+                    "extraKnownMarketplaces": {"forgeloop": {}}}
+        self.settings.write_text(json.dumps(original))
+        p = self.cli("apply", version="2.1.290")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        baks = list(self.settings.parent.glob("settings.json.forgeloop-bak-*"))
+        self.assertEqual(len(baks), 1)
+        self.assertEqual(json.loads(baks[0].read_text()), original)
+        data = json.loads(self.settings.read_text())
+        self.assertNotIn("SessionStart", data["hooks"])
+        self.assertEqual(data["permissions"]["allow"], [self.rule()])
+        before = self.settings.read_bytes()
+        p2 = self.cli("apply", version="2.1.290")
+        self.assertEqual(p2.returncode, 0, p2.stderr)
+        self.assertEqual(self.settings.read_bytes(), before)
+        self.assertEqual(len(list(self.settings.parent.glob("settings.json.forgeloop-bak-*"))), 1)
+
+    def test_check_exits_1_when_session_items_pending(self):
+        self.settings.write_text(json.dumps({
+            "enabledPlugins": {"forgeloop@forgeloop": True},
+            "extraKnownMarketplaces": {"forgeloop": {}},
+            "env": {"CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1"}}))
+        p = self.cli("--check", version="2.1.290")
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("pending session-allow-rule", p.stdout)
+        self.settings.write_text(json.dumps({
+            "enabledPlugins": {"forgeloop@forgeloop": True},
+            "extraKnownMarketplaces": {"forgeloop": {}},
+            "permissions": {"allow": [self.rule()]},
+            "hooks": {"SessionStart": [{"hooks": [{"command": self.OLD_CMD}]}]}}))
+        p = self.cli("--check", version="2.1.290")
+        self.assertEqual(p.returncode, 1)
+        self.assertIn("pending retire-session-hook", p.stdout)
+        self.assertEqual(self.cli("plan", version="2.1.290").stdout.count("session-allow-rule"), 1)
+
+    def test_session_items_present_on_other_marketplace_path(self):
+        m = load_module()
+        settings = {"enabledPlugins": {"forgeloop@gpu-team": True},
+                    "hooks": {"SessionStart": [{"hooks": [{"command": self.OLD_CMD}]}]}}
+        ch = m.compute_changes(settings, str(self.home), (2, 1, 290), False)
+        self.assertEqual(self.status(ch, "session-allow-rule"), ["pending"])
+        self.assertEqual(self.status(ch, "retire-session-hook"), ["pending"])
+        self.assertEqual(self.status(ch, "marketplace"), ["ok"])
+
+    def test_retire_blocked_on_malformed_hooks(self):
+        m = load_module()
+        h = str(self.home)
+        cases = [{"hooks": "x"}, {"hooks": {"SessionStart": "x"}}, {"hooks": {"SessionStart": ["x"]}},
+                 {"hooks": {"SessionStart": [{"hooks": "x"}]}},
+                 {"hooks": {"SessionStart": [{"hooks": ["x", {"command": self.OLD_CMD}]}]}}]
+        for bad in cases:
+            bad["permissions"] = {"allow": [self.rule()]}
+            ch = m.compute_changes(bad, h, (2, 1, 290), False)
+            self.assertEqual(self.status(ch, "retire-session-hook"), ["blocked"], bad)
+            self.settings.write_text(json.dumps(bad))
+            before = self.settings.read_bytes()
+            self.assertEqual(self.cli("apply", version="2.1.290").returncode, 0)
+            data = json.loads(self.settings.read_text())
+            self.assertEqual(data["hooks"], bad["hooks"])
+            self.settings.write_bytes(before)
+
+    def test_apply_raises_on_unknown_item(self):
+        m = load_module()
+        self.settings.write_text("{}")
+        bad = m.Change("bogus-item", "t", None, None, "r", "pending")
+        with self.assertRaises(ValueError):
+            m.apply_changes(str(self.settings), str(self.home), [bad])
+        self.assertEqual(self.settings.read_text(), "{}")
+        self.assertEqual(list(self.settings.parent.glob("*bak*")), [])
+
+    def test_updated_existing_tests_still_cover_hint_and_check(self):
+        # render_diff keeps columns aligned with the longest item name
+        m = load_module()
+        ch = m.compute_changes({}, str(self.home), (2, 1, 290), False)
+        out = m.render_diff(ch)
+        self.assertRegex(out, r"(?m)^pending  retire-session-hook|^ok       retire-session-hook")
+        self.assertRegex(out, r"(?m)^pending  session-allow-rule {3}permissions\.allow")
 
     def test_skill_contract(self):
         text = SKILL.read_text()
         self.assertRegex(text, r"(?m)^name: setup$")
-        for word in ("plan", "apply", "--check"):
+        for word in ("plan", "apply", "--check", "session-allow-rule", "retire-session-hook"):
             self.assertIn(word, text)
         self.assertRegex(text.lower(), r"approv")
         self.assertIn("${CLAUDE_PLUGIN_ROOT}/skills/setup/forgeloop_setup.py", text)

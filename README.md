@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.14.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.15.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -411,12 +411,14 @@ one has an off switch or a file under `~/.claude/forgeloop/`:
 | ASD-STE100 answer style | No (opt-in) | `FORGELOOP_STYLE=ste` or `~/.claude/forgeloop/style`; off by default |
 | Cost heat map refresh (background hook) | No | `FORGELOOP_COST_HEATMAP=off` |
 | Session cost band (mod) | Only on Claude Code older than 2.1.287: `env.CLAUDE_CODE_ENABLE_FUNCTION_HOOKS="1"` | `FORGELOOP_COST_BAND=off` |
+| Saved-session picker (`SessionStart` hook) | Allow rule and old-hook removal, via `/forgeloop:setup` (optional; works without, with a permission prompt) | `FORGELOOP_SESSIONS=off` (legacy `SESSION_CONTINUITY=off`) |
 | Setup hint (one line, once per version) | No | `FORGELOOP_SETUP_HINT=off` |
 | Skills and agents (`plan-loop`, `implement-loop`, `debug-loop`, `cluster-loop`, ...) | No | Not loaded unless invoked; nothing to switch off |
 
 **Setup.** Run `/forgeloop:setup` in a session. It prints the exact changes to
 `~/.claude/settings.json` (the env flag for an old CLI, the plugin entries
-`extraKnownMarketplaces.forgeloop` and `enabledPlugins`), asks for approval, then writes
+`extraKnownMarketplaces.forgeloop` and `enabledPlugins`, the session-picker allow rule,
+and removal of the personal `session-continuity` hook entry), asks for approval, then writes
 with a timestamped backup (`settings.json.forgeloop-bak-<UTC time>`). The ASD-STE100 style
 file is created only if you opt in. `/forgeloop:setup --check` writes nothing. You can
 also run the script in a terminal: `python3 skills/setup/forgeloop_setup.py plan`, then
@@ -446,6 +448,24 @@ prints it):
 **Managed settings.** IT can set the same keys in managed settings, which take
 precedence over user, project and local settings. ForgeLoop never writes managed
 settings.
+
+## Saved-Session Picker
+
+At session start, ForgeLoop lists the saved summaries in the project's
+`.claude/session_state_*.md` and asks which to load. Each entry shows the exact session
+name. Choose one, then Load, Delete or Back; "Fresh start, clean up, or older" offers a
+tick list to delete several, and pages by 3. Loading removes the summary file once it is
+read, and the first reply starts with `Loaded session: <name>`. The same hook keeps the
+57-minute idle checkpoint. Set `FORGELOOP_SESSIONS=off` (or legacy `SESSION_CONTINUITY=off`)
+to disable it.
+
+Deleting runs `hooks/session_state.py` through one allow rule that `/forgeloop:setup` adds
+(with approval and a backup); setup also retires the personal `session-continuity` hook.
+Until you run setup, two pickers appear. The rule path contains the plugin version, so
+setup reports it again after each upgrade. The rule matches any arguments, so only the
+helper's key rules and its `.claude`-directory check limit what it can delete.
+`--keep` and the `.claude`-name check are not security boundaries: the allow rule lets the
+helper delete any `session_state_<key>.md` in any `.claude` directory.
 
 ## Durable Sessions
 

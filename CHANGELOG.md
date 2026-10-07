@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.15.0
+
+- **Saved-session picker moved into the plugin**: a new `SessionStart` hook
+  (`hooks/session_picker.py`) replaces the personal `session-continuity` hook, including
+  the 57-minute idle checkpoint. It lists `.claude/session_state_*.md` files in the project.
+- **Two-step picker**: step 1 chooses a session (newest 3), or "Fresh start, clean up, or
+  older". A chosen session offers Load, Delete or Back. Clean up is a tick list to delete
+  several sessions at once. Older sessions page by 3.
+- **Exact name shown**: every entry is labeled with the `Name:` line of its file, and the
+  first reply after a load starts with `Loaded session: <name>`.
+- **Summary removed on load**: the file is deleted right after it is read. A failed read
+  keeps it.
+- **Helper `hooks/session_state.py`** (`list`, `consume`, `delete`, stdlib only). Keys must
+  match `[A-Za-z0-9_-]{1,64}`; it refuses symlinks, non-files, the current session, and any
+  `--dir` not named `.claude`.
+- **`/forgeloop:setup` new items**: `session-allow-rule` (one `Bash(python3 <root>/hooks/session_state.py:*)`
+  allow rule) and `retire-session-hook` (removes the personal `session-continuity` hook
+  entry; the old script file stays on disk). Both need approval and write a backup.
+- **Off switch**: `FORGELOOP_SESSIONS=off` (the legacy `SESSION_CONTINUITY=off` also works).
+- NOTE: until you run `/forgeloop:setup`, two pickers appear (the personal one and this
+  one). The allow rule path contains the plugin version, so setup reports the rule again
+  after each upgrade. The rule matches any arguments, so only the helper's key rules and
+  the `.claude`-directory check limit what it can delete.
+- NOTE: `--keep` and the `.claude`-name check are not security boundaries. The allow rule
+  lets the helper delete any `session_state_<key>.md` in any `.claude` directory.
+- Hardening: names and summaries from session files lose control characters, `[`, `]` and
+  backticks and are capped (60 and 200 characters); `consume` exits 3 when it printed the file
+  but could not remove it; the picker is off unless the plugin root and project path match
+  `[A-Za-z0-9_./+@:-]+`.
+
 ## 0.14.0
 
 - **Durable VS Code sessions on a Remote-SSH VM**: with `/forgeloop:setup --durable`, a new
