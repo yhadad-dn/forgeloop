@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "forgeloop",
-      "version": "0.17.0",
+      "version": "0.17.1",
       "source": "./",
       "description": "Gated planning, implementation, debugging, and cluster workflows with reviewer gates and real CPU/GPU run proofs.",
       "homepage": "https://github.com/yhadad-dn/forgeloop",

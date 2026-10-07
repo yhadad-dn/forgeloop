@@ -963,6 +963,9 @@ def _finish(lines: list[str], data: dict, detail: bool, tmux: list[str]) -> str:
 
 SECRET_RE = re.compile(r"key|token|secret|password", re.I)
 EVIDENCE_CMD_MAX = 100
+# SLURM flags whose "=value" is an id or a size, never a secret: kept in shown commands.
+SAFE_VALUE_FLAGS = frozenset({"--jobid", "--job-name", "--partition", "--nodelist", "--nodes",
+                              "--time", "--gres", "--ntasks", "--cpus-per-task"})
 
 
 def sanitize_command(cmd: str, limit: int = EVIDENCE_CMD_MAX) -> str:
@@ -976,7 +979,8 @@ def sanitize_command(cmd: str, limit: int = EVIDENCE_CMD_MAX) -> str:
         if SECRET_RE.search(tok):
             skip_next = tok.startswith("-") and "=" not in tok
             continue
-        out.append(tok.split("=", 1)[0] + "=" if "=" in tok else tok)
+        flag, eq, val = tok.partition("=")
+        out.append(tok if eq and flag in SAFE_VALUE_FLAGS else flag + eq)
     return " ".join(out)[:limit].rstrip()
 
 

@@ -472,6 +472,10 @@ class EndToEndTests(unittest.TestCase):
     def test_sanitize_command_caps_length(self):
         self.assertLessEqual(len(cs.sanitize_command("python " + "x" * 300)), 100)
 
+    def test_sanitize_command_keeps_slurm_ids_only(self):
+        self.assertEqual(cs.sanitize_command("srun --jobid=21859 --overlap x"), "srun --jobid=21859 --overlap x")
+        self.assertEqual(cs.sanitize_command("srun --time=00:05:00 --pin=1234 --token=abc"), "srun --time=00:05:00 --pin=")
+
     def test_short_names(self):
         self.assertEqual(cs.short_names(["amd-mi355x-7", "des2-2"]), {"amd-mi355x-7": "mi355x-7", "des2-2": "des2-2"})
         # stripping would make two names equal: keep full names

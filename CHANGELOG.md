@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.17.1
+
+- **Run card keeps SLURM ids**: the shown command no longer drops the value of `--jobid`,
+  `--job-name`, `--partition`, `--nodelist`, `--nodes`, `--time`, `--gres`, `--ntasks` and
+  `--cpus-per-task` (`srun --jobid=21859`, not `srun --jobid=`). All other `=value` parts stay hidden.
+
 ## 0.17.0
 
 - **Flow chart has a not-started mark**: a step not started now shows ⬜ (white square)
