@@ -28,6 +28,7 @@ class SessionStartHookTests(unittest.TestCase):
         env = dict(os.environ, HOME=str(self.home), CLAUDE_PLUGIN_ROOT=str(ROOT),
                    CLAUDE_PROJECT_DIR=str(self.project))
         env["FORGELOOP_SETUP_HINT"] = "off"   # never spawn the real `claude` unless a test asks
+        env.pop("FORGELOOP_STYLE", None)      # hermetic: style comes only from the test
         env.update(env_extra)
         env.pop("FORGELOOP_CONVENTIONS", None) if "FORGELOOP_CONVENTIONS" not in env_extra else None
         p = subprocess.run([sys.executable, str(HOOK)], input="{}", capture_output=True, text=True, env=env, timeout=10)
@@ -45,6 +46,11 @@ class SessionStartHookTests(unittest.TestCase):
         self.assertIn("**Milestones**", ctx)
         self.assertIn(str(ROOT / "skills" / "cluster-loop" / "cluster_status.py"), ctx)
         self.assertNotIn("{CLUSTER_STATUS}", ctx)
+        self.assertIn("🧑‍💻 Your job", ctx)
+        self.assertIn("four-word sentence", ctx)
+        self.assertIn("purpose unknown", ctx)
+        self.assertIn("only for the run in scope", ctx)
+        self.assertIn("--warnings", ctx)
 
     def test_other_remote_line(self):
         fl = self.home / ".claude" / "forgeloop"
@@ -67,6 +73,17 @@ class SessionStartHookTests(unittest.TestCase):
         self.assertIn("Remote-SSH hosts by default", ctx)
 
 
+    def test_status_format_has_flow_chart_rules(self):
+        ctx = self.run_hook()
+        self.assertIn("FLOW", ctx)
+        self.assertIn("✅", ctx)
+        self.assertIn("done and tested", ctx)
+        self.assertIn("🔄", ctx)
+        self.assertIn("in progress", ctx)
+        self.assertIn("directly before and after", ctx)
+        self.assertIn("earlier:", ctx)
+        self.assertLess(ctx.index("FLOW"), ctx.index("PROGRESS"))
+
     def test_personal_and_repo_layers_appended_in_order(self):
         (self.home / ".claude" / "forgeloop").mkdir(parents=True)
         (self.home / ".claude" / "forgeloop" / "conventions.md").write_text("Call me Yak.")
@@ -78,15 +95,33 @@ class SessionStartHookTests(unittest.TestCase):
         self.assertLess(personal, repo)
         self.assertNotIn("## Gates", ctx)              # only the Conventions section is taken
 
-    def test_ste_style_off_by_default_on_via_env_or_file(self):
-        self.assertNotIn("ASD-STE100", self.run_hook())
-        self.assertIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="ste"))
-        self.assertNotIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="other"))
-        (self.home / ".claude" / "forgeloop").mkdir(parents=True)
-        (self.home / ".claude" / "forgeloop" / "style").write_text("ste\n")
+    def write_style(self, text):
+        (self.home / ".claude" / "forgeloop").mkdir(parents=True, exist_ok=True)
+        (self.home / ".claude" / "forgeloop" / "style").write_text(text)
+
+    def test_ste_style_on_by_default_and_ordered_after_team(self):
         ctx = self.run_hook()
         self.assertIn("ASD-STE100", ctx)
         self.assertLess(ctx.index("## Status reports"), ctx.index("ASD-STE100"))
+
+    def test_ste_style_env_and_file_precedence(self):
+        self.assertIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="ste"))
+        self.assertIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE=" STE "))
+        for v in ("off", "0", "false", "no", "other"):
+            self.assertNotIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE=v), v)
+        self.assertIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="  "))   # blank env is unset
+        self.write_style("ste\n")
+        self.assertIn("ASD-STE100", self.run_hook())
+        self.assertNotIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="off"))   # env off beats file ste
+        self.write_style("off\n")
+        self.assertNotIn("ASD-STE100", self.run_hook())
+        self.assertIn("ASD-STE100", self.run_hook(FORGELOOP_STYLE="ste"))      # env ste beats file off
+        self.write_style("plain\n")
+        self.assertNotIn("ASD-STE100", self.run_hook())
+        self.write_style("")
+        self.assertIn("ASD-STE100", self.run_hook())                           # empty file -> default
+        self.write_style("\n  \n")
+        self.assertIn("ASD-STE100", self.run_hook())
 
     def test_off_switch(self):
         self.assertIsNone(self.run_hook(FORGELOOP_CONVENTIONS="off"))
@@ -121,6 +156,7 @@ class SetupHintTests(unittest.TestCase):
                    PATH=path if path is not None else f"{self.bin}:{os.environ['PATH']}")
         env.pop("FORGELOOP_SETUP_HINT", None)
         env.pop("FORGELOOP_CONVENTIONS", None)
+        env.pop("SSH_CONNECTION", None)
         env.update(env_extra)
         p = subprocess.run([sys.executable, str(HOOK)], input="{}", capture_output=True, text=True,
                            env=env, timeout=15)
@@ -165,6 +201,20 @@ class SetupHintTests(unittest.TestCase):
             "permissions": {"allow": ["Bash(python3 %s/hooks/session_state.py:*)" % ROOT]}}))
         self.assertNotIn(HINT, self.run_hook() or "")
         self.assertTrue(self.stamp.exists())
+
+    def test_setup_hint_fires_on_vm_for_pending_durable_item_only(self):
+        self.fake_claude("2.1.290 (Claude Code)")
+        done = {
+            "extraKnownMarketplaces": {"forgeloop": {"source": {"source": "github", "repo": "yhadad-dn/forgeloop"}}},
+            "enabledPlugins": {"forgeloop@forgeloop": True},
+            "permissions": {"allow": ["Bash(python3 %s/hooks/session_state.py:*)" % ROOT]}}
+        self.settings.write_text(json.dumps(done))
+        vm = {"SSH_CONNECTION": "1.2.3.4 5 6.7.8.9 22"}
+        self.assertNotIn(HINT, self.run_hook() or "")          # non-VM: nothing pending
+        self.stamp.unlink()
+        self.assertIn(HINT, self.run_hook(**vm))               # VM: durable items pending
+        self.assertNotIn(HINT, self.run_hook(**vm))            # once per version
+        self.assertEqual(json.loads(self.settings.read_text()), done)
 
     def test_setup_hint_never_writes_settings(self):
         self.settings.write_text('{"keep": true}\n')

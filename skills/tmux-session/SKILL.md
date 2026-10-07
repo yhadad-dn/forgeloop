@@ -1,10 +1,11 @@
 ---
 name: tmux-session
 description: >
-  Lists and stops the durable tmux sessions ForgeLoop starts on Remote-SSH hosts.
+  Lists, stops and ends the durable tmux sessions ForgeLoop starts on Remote-SSH hosts.
   `list` shows the sessions. `stop [name]` ends one after the user confirms its exact
   name. Only sessions whose name starts with fl- are touched. Invoke with:
-  /forgeloop:tmux-session list, or /forgeloop:tmux-session stop [name]. Also use when
+  /forgeloop:tmux-session list, or /forgeloop:tmux-session stop [name]. `end-current`
+  closes the session you are in at the end of a session. Also use when
   the user asks to stop, close, or find their durable tmux session.
 ---
 
@@ -46,6 +47,17 @@ are no ForgeLoop tmux sessions.
 4. After the user confirms, run `python3 "${CLAUDE_PLUGIN_ROOT}/skills/tmux-session/forgeloop_tmux.py" stop <name>`.
 5. Tell the user: the helper schedules the kill about 2 seconds later, so this answer
    arrives first, and this conversation ends right after if it is the current session.
+
+## end-current
+
+Used at the end of a session, after the summary file was written (the idle checkpoint and
+an explicit "end session" both run it as the last action). Run
+`python3 ~/.claude/forgeloop/forgeloop_tmux.py end-current` (the installed copy; setup adds
+an allow rule for exactly this command). It acts only when `$TMUX` is set and
+`tmux display-message -p '#S'` returns a name starting with `fl-`; it then schedules the
+same 2-second delayed stop as `stop` and exits 0, with no confirmation. Otherwise it prints
+`not in a ForgeLoop tmux session; nothing closed` and touches nothing. Never run
+`tmux kill-session` yourself.
 
 ## Attach and resume
 

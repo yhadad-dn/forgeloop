@@ -43,15 +43,21 @@ A spike on a real Remote-SSH VM established these facts:
 
 ## Turn it on (once per VM)
 
-Run `/forgeloop:setup --durable` (or `python3 skills/setup/forgeloop_setup.py plan --durable`
-then `apply --durable`). It shows the diff and asks first. It copies the wrapper and its
+On a Remote-SSH VM this is the default: run `/forgeloop:setup` (or
+`python3 skills/setup/forgeloop_setup.py plan` then `apply`). The durable items are
+included automatically when the host classifies as Remote-SSH, and a one-line hint tells you
+once per plugin version when something is pending. You still approve the diff once per VM;
+the plugin never writes the VS Code setting silently. `--no-durable` skips the durable
+items; `--durable` forces them on where the host is not detected (for example after you
+answered `yes` for another kind of remote host). Other hosts get no durable items unless you
+pass `--durable`. Setup shows the diff and asks first. It copies the wrapper and its
 helper to `~/.claude/forgeloop/` and sets `claudeCode.claudeProcessWrapper` in
 `~/.vscode-server/data/Machine/settings.json`. If that file has comments, setup prints the
 one line to add by hand and changes nothing in it. Reload the VS Code window afterwards.
 
 Durable sessions need the plugin install: `scripts/install.sh` does not ship `scripts/`, so
 there setup reports the durable items as `unknown` and writes nothing. Re-run
-`/forgeloop:setup --durable` after each plugin upgrade; the installed copy in
+`/forgeloop:setup` after each plugin upgrade; the installed copy in
 `~/.claude/forgeloop/` is not refreshed automatically, and `--check` reports it as pending.
 Setup exits 2 when `~/.claude/settings.json` is broken, even if the durable items applied.
 
@@ -68,6 +74,31 @@ Run `/forgeloop:tmux-session stop` inside the session (it asks to confirm the na
 the session ends about two seconds after the reply). `/forgeloop:tmux-session list` shows
 the `fl-*` sessions. Only sessions whose name starts with `fl-` can be stopped this way.
 From a terminal: `tmux attach -t <name>`, or `python3 skills/tmux-session/forgeloop_tmux.py stop <name>`.
+
+## Closing at session end
+
+When a session ends, it writes its summary and then closes its own tmux session:
+
+- **Idle**: the 57-minute idle checkpoint writes the summary file, then, as its very last
+  action, runs `forgeloop_tmux.py end-current`. This is unattended: there is no
+  confirmation. The tmux session ends about two seconds later. The conversation can be
+  resumed with `claude remote-control --continue` (alone, no `--spawn`) for about four hours.
+- **On request**: say "end session" (or "wrap up and close"). Claude writes the same
+  summary, runs `end-current`, and does not arm another checkpoint.
+- The idle checkpoint closes the session after 57 idle minutes even if you are still
+  attached (the summary is saved first), and closing needs `TMUX_PANE` as well as `TMUX`.
+- `end-current` acts only when `$TMUX` is set and the tmux session name starts with `fl-`;
+  otherwise it prints `not in a ForgeLoop tmux session; nothing closed` and exits 0. It
+  uses the same delayed stop as `stop` and never kills a session directly.
+- The close step is added to the checkpoint text only when `$TMUX` is set at session start
+  and `~/.claude/forgeloop/forgeloop_tmux.py` exists. Outside tmux, the checkpoint just
+  writes the summary.
+- Setup adds one allow rule for this, `tmux-end-rule`, for exactly
+  `Bash(python3 ~/.claude/forgeloop/forgeloop_tmux.py end-current)` (with your absolute home
+  path), so the close runs without a prompt.
+- NOT VERIFIED: that `$TMUX` is inherited by sessions that the Remote Control server
+  spawns. If it is not, those sessions only write the summary and the tmux session is not
+  closed automatically.
 
 ## Switch off or undo
 

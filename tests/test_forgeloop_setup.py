@@ -33,12 +33,15 @@ class SetupTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def cli(self, *args, version="2.1.284"):
+    def cli(self, *args, version="2.1.284", env=None):
         cmd = [sys.executable, str(SCRIPT), *args, "--settings", str(self.settings),
                "--home", str(self.home)]
         if version:
             cmd += ["--cli-version", version]
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        full = {k: v for k, v in os.environ.items()
+                if k not in ("SSH_CONNECTION", "REMOTE_CONTAINERS", "CODESPACES", "WSL_DISTRO_NAME")}
+        full.update(env or {})
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=20, env=full)
 
     def status(self, changes, item):
         return [c.status for c in changes if c.item == item]
@@ -126,15 +129,24 @@ class SetupTests(unittest.TestCase):
         unknown = self.cli("--check", version=None)  # real detection may fail; unknown is not pending
         self.assertIn(unknown.returncode, (0, 1))
 
-    def test_ste_only_on_flag_and_team_snippet(self):
+    def test_ste_default_on_and_flag_pins_it(self):
         style = self.home / ".claude" / "forgeloop" / "style"
         self.cli("apply")
-        self.assertFalse(style.exists())
-        self.assertEqual(self.cli("--check", "--ste").returncode, 1)
+        self.assertFalse(style.exists())                 # default on: nothing to write
+        p = self.cli("plan")
+        self.assertRegex(p.stdout, r"(?s)ste-style[^\n]*\n\s*on by default")
+        self.assertNotIn("not requested", p.stdout)
+        self.assertEqual(self.cli("--check").returncode, 0)
+        self.assertEqual(self.cli("--check", "--ste").returncode, 1)   # --ste still pins the file
         self.assertFalse(style.exists())
         self.assertEqual(self.cli("apply", "--ste").returncode, 0)
         self.assertEqual(style.read_text().strip(), "ste")
-        self.assertEqual(self.cli("--check", "--ste").returncode, 0)
+        self.assertEqual(self.cli("--check", "--ste").returncode, 0)   # idempotent
+        self.assertEqual(self.cli("apply", "--ste").returncode, 0)
+        self.assertEqual(style.read_text().strip(), "ste")
+        style.write_text("off\n")
+        self.assertEqual(self.cli("--check").returncode, 0)            # user's off is respected
+        self.assertEqual(style.read_text().strip(), "off")
         before = sorted(str(p) for p in self.home.rglob("*"))
         p = self.cli("--team-snippet")
         self.assertEqual(p.returncode, 0, p.stderr)
@@ -479,6 +491,99 @@ class DurableTests(unittest.TestCase):
         self.assertEqual(self.status(load_module().durable_changes(str(self.home)), "durable-wrapper"), ["pending"])
         c = self.cli("--check", "--durable", version="2.1.290")
         self.assertIn("writable", c.stdout)
+
+
+VM = {"SSH_CONNECTION": "1.2.3.4 5 6.7.8.9 22"}
+
+
+class VmDefaultTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self.tmp.name) / "home"
+        (self.home / ".claude").mkdir(parents=True)
+        self.settings = self.home / ".claude" / "settings.json"
+        self.machine = self.home / ".vscode-server" / "data" / "Machine" / "settings.json"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    cli = SetupTests.cli
+    status = SetupTests.status
+
+    def end_rule(self):
+        return f"Bash(python3 {self.home}/.claude/forgeloop/forgeloop_tmux.py end-current)"
+
+    def test_default_durable_classification(self):
+        m = load_module()
+        h = str(self.home)
+        self.assertTrue(m.default_durable(h, VM))
+        self.assertFalse(m.default_durable(h, {}))
+        other = dict(VM, CODESPACES="true")
+        self.assertFalse(m.default_durable(h, other))
+        d = self.home / ".claude" / "forgeloop"
+        d.mkdir()
+        (d / "durable").write_text("yes\n")
+        self.assertTrue(m.default_durable(h, other))
+        (d / "durable").write_text("no\n")
+        self.assertFalse(m.default_durable(h, other))
+
+    def test_vm_plan_includes_durable_items_by_default(self):
+        p = self.cli("plan", env=VM)
+        self.assertIn("durable-wrapper", p.stdout)
+        self.assertIn("durable-setting", p.stdout)
+        self.assertIn("tmux-end-rule", p.stdout)
+        self.assertEqual(self.cli("--check", env=VM).returncode, 1)
+
+    def test_no_durable_skips_and_non_vm_unchanged(self):
+        p = self.cli("plan", "--no-durable", env=VM)
+        for item in ("durable-wrapper", "durable-setting", "tmux-end-rule"):
+            self.assertNotIn(item, p.stdout)
+        p = self.cli("plan")
+        for item in ("durable-wrapper", "durable-setting", "tmux-end-rule"):
+            self.assertNotIn(item, p.stdout)
+        p = self.cli("plan", "--durable")
+        self.assertIn("durable-wrapper", p.stdout)
+        self.assertIn("tmux-end-rule", p.stdout)
+        p = self.cli("plan", "--durable", "--no-durable", env=VM)
+        self.assertIn("durable-wrapper", p.stdout)  # --durable forces on
+
+    def test_vm_apply_writes_everything_idempotent(self):
+        p = self.cli("apply", env=VM)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertTrue(self.machine.exists())
+        self.assertIn(self.end_rule(), json.loads(self.settings.read_text())["permissions"]["allow"])
+        self.assertEqual(self.cli("--check", env=VM).returncode, 0)
+        snap = {str(x): x.read_bytes() for x in self.home.rglob("*") if x.is_file()}
+        self.assertEqual(self.cli("apply", env=VM).returncode, 0)
+        self.assertEqual(snap, {str(x): x.read_bytes() for x in self.home.rglob("*") if x.is_file()})
+
+    def test_end_rule_states(self):
+        m = load_module()
+        h = str(self.home)
+        rule = self.end_rule()
+        c = [c for c in m.compute_changes({}, h, (2, 1, 290), False, True) if c.item == "tmux-end-rule"]
+        self.assertEqual([(x.status, x.after, x.target) for x in c], [("pending", rule, "permissions.allow")])
+        ok = {"permissions": {"allow": [rule]}}
+        self.assertEqual(self.status(m.compute_changes(ok, h, (2, 1, 290), False, True), "tmux-end-rule"), ["ok"])
+        for bad in ({"permissions": []}, {"permissions": {"allow": "x"}}):
+            self.assertEqual(self.status(m.compute_changes(bad, h, (2, 1, 290), False, True), "tmux-end-rule"),
+                             ["blocked"])
+        spaced = str(self.home) + " x"
+        self.assertEqual(self.status(m.compute_changes({}, spaced, (2, 1, 290), False, True), "tmux-end-rule"),
+                         ["blocked"])
+        self.assertEqual(self.status(m.compute_changes({}, h, (2, 1, 290), False, False), "tmux-end-rule"), [])
+
+    def test_end_rule_unsafe_chars_blocked_and_reason(self):
+        m = load_module()
+        for bad in ("/home/u$x", "/home/u;x", "/home/u'x", "/home/u`x", "/home/u(x)"):
+            self.assertEqual(self.status(m.compute_changes({}, bad, (2, 1, 290), False, True), "tmux-end-rule"),
+                             ["blocked"], bad)
+        c = [c for c in m.compute_changes({}, "/home/u", (2, 1, 290), False, True) if c.item == "tmux-end-rule"][0]
+        self.assertEqual(c.status, "pending")
+        self.assertIn("~/.claude/forgeloop/forgeloop_tmux.py", c.reason)
+        self.assertIn("idle checkpoint", c.reason)
+        self.assertIn("fl- tmux session", c.reason)
+        self.assertIn("without a prompt", c.reason)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 """Cluster status for ForgeLoop: are my jobs progressing, when do they finish, what is wrong.
 
-Default view is one row per job (progress, finish time, expiry, state), one compact
-line per node, and warnings with a proposed action. `--detail` adds the full per-node
-view (per-GPU numbers, processes, containers, disk). Times are Israel time. Stdlib only.
+Default view is "what can I use": free GPUs now, fully busy nodes, one line per job of
+yours (id, name, node, end time, plus `does:` evidence), and a warning only for a real
+problem (a full node is normal, never a warning). `--plain` prints the previous default
+(one row per job with progress, finish time, expiry, state, one line per node, warnings).
+`--detail` adds the full per-node view (per-GPU numbers, processes, containers, disk).
+Times are Israel time. Stdlib only.
 
 Usage:
   cluster_status.py --mine
   cluster_status.py --job 21577 [--log run.log] [--label "rank-alloc proof run"]
   cluster_status.py --job 21577 --log a.log --job 21580 --log b.log   # pairs in order
-  cluster_status.py --mine --detail | --json | --timing | --fresh | --raw
+  cluster_status.py --mine --plain | --detail | --warnings | --json | --timing | --fresh | --raw
+
+Warnings: the default view shows a warning only if it belongs to a --job run or to a node
+such a job runs on; --mine alone shows none. `--warnings`, `--plain` and `--detail` show all.
+`--json` is complete and marks each warning (`warning_details`) and job with `relevant`.
 
 Speed: all SLURM data comes back in one round trip; node probes run in parallel
 (`srun --overlap`, 15 s timeout each) and run their own commands in parallel; ssh to
@@ -78,6 +85,7 @@ for spec in __LOGS__; do
   if [ -r "$p" ]; then echo "@@LOG $j $(stat -c %Y "$p") $p"; tail -c 32768 "$p" | base64 -w0; echo; fi
 done
 echo "=== sinfo"; sinfo -h -N -o "%N|%T|%E"
+echo "=== gres"; sinfo -h -N -O "NodeList:60,Gres:60,GresUsed:80" 2>/dev/null
 echo "=== end"
 """
 
@@ -228,6 +236,36 @@ def parse_sinfo(text: str) -> dict[str, tuple[str, str]]:
         if len(parts) == 3:
             out[parts[0]] = (parts[1], "" if parts[2] in ("none", "") else parts[2])
     return out
+
+
+GPU_COUNT_RE = re.compile(r"\bgpu(?::[A-Za-z][\w.-]*)?:(\d+)")
+
+
+def parse_gres(text: str) -> dict[str, tuple[int, int]]:
+    """`sinfo -N -O NodeList,Gres,GresUsed` -> {node: (gpus total, gpus allocated)}, GPU nodes only."""
+    out: dict[str, tuple[int, int]] = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 2 or parts[0] in out:
+            continue
+        total = GPU_COUNT_RE.search(parts[1])
+        used = GPU_COUNT_RE.search(parts[2]) if len(parts) > 2 else None
+        if total and int(total.group(1)) > 0:
+            out[parts[0]] = (int(total.group(1)), min(int(used.group(1)) if used else 0, int(total.group(1))))
+    return out
+
+
+def parse_step_names(text: str) -> dict[str, list[str]]:
+    """Names of a job's run steps (not extern/batch), in step order, from `squeue -s`."""
+    found: dict[str, list[tuple[int, str]]] = {}
+    for line in text.splitlines():
+        parts = line.strip().split("|")
+        if len(parts) != 3 or "." not in parts[0]:
+            continue
+        job, _, step = parts[0].partition(".")
+        if step.isdigit() and parts[1] not in ("extern", "batch", "bash"):
+            found.setdefault(job, []).append((int(step), parts[1]))
+    return {j: [n for _, n in sorted(v)] for j, v in found.items()}
 
 
 def parse_cluster_time(value: str, utc_offset: str) -> datetime | None:
@@ -481,6 +519,8 @@ def collect(runner: Runner, job_ids: list[str], log_args: dict[str, str], timing
     steps = parse_steps(sec.get("steps", ""))
     hosts, remote_logs, gpus_per_node = parse_detail(sec.get("detail", ""))
     sinfo = parse_sinfo(sec.get("sinfo", ""))
+    gres = parse_gres(sec.get("gres", ""))
+    step_names = parse_step_names(sec.get("steps", ""))
     for jid in job_ids:
         if not any(j["id"] == jid for j in jobs):
             notes.append(f"job {jid} not found in squeue (finished, cancelled, or wrong ID)")
@@ -491,6 +531,7 @@ def collect(runner: Runner, job_ids: list[str], log_args: dict[str, str], timing
         job["end_dt"] = parse_cluster_time(job["end"], offset)
         job["left_td"] = parse_duration(job["time_left"])
         job["hosts"] = hosts.get(job["id"], [])
+        job["steps"] = step_names.get(job["id"], [])
         raw_log = local_logs.get(job["id"]) or remote_logs.get(job["id"])
         job["log"] = analyze_log(raw_log, now) if raw_log else None
         run_elapsed = steps.get(job["id"]) or parse_duration(job["time_used"])
@@ -557,7 +598,9 @@ def collect(runner: Runner, job_ids: list[str], log_args: dict[str, str], timing
         elif host in methods:
             methods.pop(host)  # re-discover next time
     save_json(CACHE_DIR / "methods.json", methods)
-    return {"jobs": jobs, "nodes": nodes, "notes": notes, "collected_at": _now()}
+    cluster_gpus = {h: {"total": t, "used": u, "state": sinfo.get(h, ("", ""))[0]} for h, (t, u) in gres.items()}
+    return {"jobs": jobs, "nodes": nodes, "notes": notes, "collected_at": _now(), "cluster_gpus": cluster_gpus,
+            "log_args": dict(log_args)}
 
 
 def resolve_owners(runner: Runner, jobs: list[dict], nodes: dict[str, dict], offset: str,
@@ -832,7 +875,8 @@ def spark(values: list[float | None]) -> str:
     return "".join("·" if v is None else SPARK[min(7, int(max(0.0, min(1.0, v)) * 7.999))] for v in values)
 
 
-def render(data: dict, detail: bool, labels: dict[str, str], tmux: list[str]) -> str:
+def render_plain(data: dict, detail: bool, labels: dict[str, str], tmux: list[str]) -> str:
+    """The previous default view: job table, node lines, warnings."""
     now, jobs, nodes = data["collected_at"], data["jobs"], data.get("nodes", {})
     lines: list[str] = []
     if data.get("no_slurm"):
@@ -897,6 +941,11 @@ def render(data: dict, detail: bool, labels: dict[str, str], tmux: list[str]) ->
                     if n["gpus"]:
                         lines.append(f"  note: {host}: {note}")
 
+    return _finish(lines, data, detail, tmux)
+
+
+def _finish(lines: list[str], data: dict, detail: bool, tmux: list[str]) -> str:
+    now, jobs, nodes = data["collected_at"], data["jobs"], data.get("nodes", {})
     if detail:
         for host, n in nodes.items():
             lines += ["", *render_node_detail(n, tmux, now)]
@@ -910,6 +959,135 @@ def render(data: dict, detail: bool, labels: dict[str, str], tmux: list[str]) ->
     lines.append("")
     lines.append(f"collected {fmt_time(now, now)} Israel time")
     return "\n".join(lines).rstrip() + "\n"
+
+
+SECRET_RE = re.compile(r"key|token|secret|password", re.I)
+EVIDENCE_CMD_MAX = 100
+
+
+def sanitize_command(cmd: str, limit: int = EVIDENCE_CMD_MAX) -> str:
+    """A command line safe to show: tokens that look like secrets are dropped (with the value
+    that follows a bare flag), and everything after '=' is dropped."""
+    out, skip_next = [], False
+    for tok in cmd.split():
+        if skip_next:
+            skip_next = False
+            continue
+        if SECRET_RE.search(tok):
+            skip_next = tok.startswith("-") and "=" not in tok
+            continue
+        out.append(tok.split("=", 1)[0] + "=" if "=" in tok else tok)
+    return " ".join(out)[:limit].rstrip()
+
+
+def job_evidence(job: dict, nodes: dict[str, dict], tmux: list[str], label: str | None,
+                 log_arg: str | None) -> list[str]:
+    """What a job appears to do, from data already gathered: step names, the job's GPU-holding
+    (or busiest) processes and its containers on its nodes, tmux session, label, log file."""
+    ev: list[str] = [f"step {sanitize_command(n, 40)}" for n in job.get("steps", [])[:3]]
+    now, start = _now(), job.get("start_dt")
+    for host in job.get("hosts", []):
+        n = nodes.get(host)
+        if not n:
+            continue
+        procs = [p for p in n["procs"] if p["user"] in (job["user"], "root", "?")
+                 and not p["args"].startswith("(not in")
+                 and not (start and p["elapsed_s"] > (now - start).total_seconds() + 300)]
+        ev += [f"proc {sanitize_command(p['args'])}" for p in procs[:2]]
+        ours = {e["what"][len("container "):] for jid, e in n.get("workloads", [])
+                if jid == job["id"] and e["verdict"] == "ours" and e["what"].startswith("container ")}
+        ev += [f"container {c['name']}" for c in n["containers"]
+               if (start and c.get("created") and c["created"] >= start - timedelta(minutes=5)) or c["name"] in ours][:2]
+    for host in job.get("hosts", []):
+        session = next((s for s in tmux if host in s), None)
+        if session:
+            ev.append(f"tmux {session}")
+            break
+    if label:
+        ev.append(f"label {sanitize_command(label, 60)}")
+    if job.get("log") and job["log"].get("path"):
+        ev.append(f"log {os.path.basename(job['log']['path'])}")
+    elif log_arg:
+        ev.append(f"log {os.path.basename(log_arg)}")
+    return list(dict.fromkeys(ev))
+
+
+def short_names(names) -> dict[str, str]:
+    """Drop the common 'amd-' prefix, but only when every short name stays unique."""
+    pool = sorted(set(names))
+    short = {n: n[4:] if n.startswith("amd-") else n for n in pool}
+    return short if len(set(short.values())) == len(pool) else {n: n for n in pool}
+
+
+def warning_scope(data: dict, relevant: set[str] | None) -> list[tuple[dict, str, bool]]:
+    """Every warning as (job, text, relevant). A warning is relevant when its job is one of the
+    jobs named with --job, or when it is led by a node one of those jobs runs on. `relevant`
+    None means "no scope given" (treated as nothing relevant)."""
+    relevant = relevant or set()
+    nodes = data.get("nodes", {})
+    all_hosts = {h for j in data["jobs"] for h in j["hosts"]}
+    rel_hosts = {h for j in data["jobs"] if j["id"] in relevant for h in j["hosts"]}
+    out = []
+    for job in data["jobs"]:
+        _, warns = assess(job, nodes, data["collected_at"], data["jobs"])
+        for w in warns:
+            led = next((h for h in all_hosts if w.startswith(h)), None)
+            out.append((job, w, job["id"] in relevant or (led is not None and led in rel_hosts)))
+    return out
+
+
+def count_shown_warnings(data: dict, relevant: set[str] | None, show_all: bool) -> int:
+    """Warnings the user sees; the exit code follows this, so a hidden warning never changes it."""
+    return sum(1 for _, _, rel in warning_scope(data, relevant) if show_all or rel)
+
+
+def render(data: dict, detail: bool, labels: dict[str, str], tmux: list[str], plain: bool = False,
+           relevant: set[str] | None = None, show_all_warnings: bool = False) -> str:
+    """Default view: what can I use now, my jobs with evidence of what they do, and warnings only
+    for the run in scope (`relevant` job ids). --plain, --detail and --warnings show every warning."""
+    if plain:
+        return render_plain(data, detail, labels, tmux)
+    show_all_warnings = show_all_warnings or detail
+    now, jobs, nodes = data["collected_at"], data["jobs"], data.get("nodes", {})
+    gpus = {h: g for h, g in (data.get("cluster_gpus") or {}).items()
+            if not g.get("state", "").lower().startswith(("drain", "down", "fail", "maint"))}
+    short = short_names(list(gpus) + [h for j in jobs for h in j["hosts"]])
+    sh = lambda h: short.get(h, h)
+    lines: list[str] = []
+    if not data.get("cluster_gpus"):
+        lines.append("🟢 Free now: n/a (SLURM GPU counts not available)")
+    else:
+        free = sorted(((g["total"] - g["used"], h) for h, g in gpus.items() if g["total"] > g["used"]),
+                      key=lambda x: (-x[0], x[1]))
+        total = sum(f for f, _ in free)
+        lines.append("🟢 Free now: " + (f"{total} GPU{'s' if total != 1 else ''}  ("
+                                       + ", ".join(f"{sh(h)} ×{f}" for f, h in free) + ")" if free else "none"))
+        full = sorted(sh(h) for h, g in gpus.items() if g["total"] <= g["used"])
+        if full:
+            lines.append("🔴 Full: " + ", ".join(full))
+    if data.get("no_slurm"):
+        pass  # the note says what to do
+    elif not jobs:
+        lines.append("no jobs found")
+    log_args = data.get("log_args", {})
+    for job in jobs:
+        state, warns = assess(job, nodes, now, jobs)
+        job["_state"], job["_warns"] = state, warns
+        evidence = job.get("does_evidence")
+        if evidence is None:
+            evidence = job["does_evidence"] = job_evidence(job, nodes, tmux, labels.get(job["id"]), log_args.get(job["id"]))
+        node_txt = ",".join(sh(h) for h in job["hosts"]) or "—"
+        ends = fmt_time(job.get("end_dt"), now) if job.get("end_dt") else "—"
+        lines.append(f"🧑‍💻 Your job {job['id']} · {job['name']} · {node_txt} · ends {ends}")
+        lines.append("   does: " + ("; ".join(evidence) if evidence else "(no evidence)"))
+    for job, w, rel in warning_scope(data, relevant):
+        if not (rel or show_all_warnings):
+            continue
+        for full_name in sorted(short, key=len, reverse=True):
+            w = w.replace(full_name, short[full_name])
+        node_led = any(w.startswith(v) for v in short.values())
+        lines.append(f"⚠️ {w}" if node_led else f"⚠️ {job['id']}: {w}")
+    return _finish(lines, data, detail, tmux)
 
 
 def render_node_detail(n: dict, tmux: list[str], now: datetime) -> list[str]:
@@ -998,7 +1176,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--slurm-host", default=None,
                     help="ssh target that has the SLURM client (default: FORGELOOP_SLURM_HOST, then slurm_host in "
                          ".claude/forgeloop.md or ~/.claude/forgeloop/forgeloop.md, else run locally)")
+    ap.add_argument("--plain", action="store_true", help="print the previous default view (job table, node lines)")
     ap.add_argument("--detail", action="store_true", help="add the full per-node view")
+    ap.add_argument("--warnings", action="store_true",
+                    help="show every warning (all jobs and nodes); default shows only those of the --job runs")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--raw", action="store_true", help="append raw node probe output")
     ap.add_argument("--timing", action="store_true", help="print how long each phase took (stderr)")
@@ -1011,10 +1192,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.job and not args.mine:
         ap.error("give --job <id> or --mine")
     log_args = dict(zip(args.job, args.log))
+    relevant = set(args.job)  # the run(s) the task is about; --mine alone names none
     labels = dict(zip(args.job, args.label))
 
     key = hashlib.sha1(json.dumps([sorted(args.job), args.log, args.label, args.mine, args.slurm_host, args.name,
-                                   args.detail, args.json, args.raw]).encode()).hexdigest()[:16]
+                                   args.detail, args.json, args.raw, args.plain, args.warnings]).encode()).hexdigest()[:16]
     cache_file = CACHE_DIR / f"result-{key}.json"
     cached = {} if args.fresh else load_json(cache_file)
     if cached and time.time() - cached.get("ts", 0) < RESULT_TTL_S:
@@ -1030,11 +1212,21 @@ def main(argv: list[str] | None = None) -> int:
         data["jobs"] = [j for j in data["jobs"] if re.search(args.name, j["name"])]
     t1 = time.monotonic()
     if args.json:
+        tmux = local_tmux_sessions()
         for job in data["jobs"]:
+            job["does_evidence"] = job_evidence(job, data.get("nodes", {}), tmux, labels.get(job["id"]),
+                                                log_args.get(job["id"]))
             job["state_summary"], job["warnings"] = assess(job, data.get("nodes", {}), data["collected_at"], data["jobs"])
+            job["relevant"] = job["id"] in relevant
+        flags = {}
+        for job, w, rel in warning_scope(data, relevant):
+            flags.setdefault(job["id"], []).append({"text": w, "relevant": rel})
+        for job in data["jobs"]:
+            job["warning_details"] = flags.get(job["id"], [])
         text = to_json(data) + "\n"
     else:
-        text = render(data, args.detail, labels, local_tmux_sessions())
+        text = render(data, args.detail, labels, local_tmux_sessions(), plain=args.plain,
+                      relevant=relevant, show_all_warnings=args.warnings)
         if args.raw:
             text += "".join(f"\n--- raw probe: {h} ---\n{n.get('raw', '')}\n" for h, n in data.get("nodes", {}).items())
     timing["render"] = time.monotonic() - t1
@@ -1051,7 +1243,11 @@ def main(argv: list[str] | None = None) -> int:
     elif not data["jobs"]:
         rc = 2
     else:
-        rc = 1 if any(assess(j, data.get("nodes", {}), data["collected_at"], data["jobs"])[1] for j in data["jobs"]) else 0
+        # Exit code reflects only the warnings that are shown: a hidden, out-of-scope warning
+        # must not make the run in scope look unhealthy. Full views (--plain, --detail,
+        # --warnings, --json) show everything, so they keep the old meaning.
+        full = args.plain or args.detail or args.warnings or args.json
+        rc = 1 if count_shown_warnings(data, relevant, full) else 0
     save_json(cache_file, {"ts": time.time(), "text": text, "rc": rc})
     return rc
 

@@ -2,8 +2,8 @@
 name: setup
 description: >
   Checks and applies the few user settings ForgeLoop can use: the plugin entries, the
-  env flag the cost band needs on Claude Code older than 2.1.287, and the optional STE
-  answer style. Shows the exact changes, asks for approval, then writes with a backup.
+  env flag the cost band needs on Claude Code older than 2.1.287, and the ASD-STE100
+  answer style (on by default; only pinned on request). Shows the exact changes, asks for approval, then writes with a backup.
   Invoke with: /forgeloop:setup (or /forgeloop:setup --check). Also use when the session
   says "ForgeLoop: settings need a one-time check".
 ---
@@ -13,7 +13,8 @@ description: >
 ForgeLoop works without any settings change. This skill only adds the optional entries
 below, and only after the user approves the exact diff. It writes user scope only
 (`~/.claude/settings.json` and `~/.claude/forgeloop/style`), never project or managed
-settings. Only with `--durable` it writes two more locations: the VS Code remote machine
+settings. On a Remote-SSH VM the durable items are included by default (`--no-durable` skips them;
+`--durable` forces them on elsewhere). They write two more locations: the VS Code remote machine
 settings file (`~/.vscode-server/data/Machine/settings.json`) and the copies
 `~/.claude/forgeloop/vscode-wrapper.sh` and `~/.claude/forgeloop/forgeloop_tmux.py`. The helper is `forgeloop_setup.py`, next to this file. Run it with:
 
@@ -37,13 +38,14 @@ that repo's code: only run it if the user confirms they trust that repo's copy.
 | Item | Set when |
 |------|----------|
 | `env.CLAUDE_CODE_ENABLE_FUNCTION_HOOKS="1"` | the CLI version is below 2.1.287 and the key is absent |
-| `~/.claude/forgeloop/style` with `ste` | only if the user opts in (`--ste`) |
+| `~/.claude/forgeloop/style` with `ste` | on by default, so no file is needed; written (pinning `ste`) only with `--ste`. A file with another value (such as `off`) turns the style off and is never changed |
 | `extraKnownMarketplaces.forgeloop` and `enabledPlugins["forgeloop@forgeloop"]` | absent; an existing value (even `false`) is never changed. An existing `forgeloop@<any-marketplace>` install is detected and not duplicated |
 | `session-allow-rule`: `Bash(python3 <plugin root>/hooks/session_state.py:*)` in `permissions.allow` | absent. Lets the session picker delete or load a saved session summary without a prompt. Reported `blocked` (nothing written) if `permissions` or `permissions.allow` has the wrong type, or the plugin path contains a space. Computed for every install path, including another marketplace. The rule holds the plugin version path, so a plugin upgrade reports a new pending rule; old rules are not removed |
 | `retire-session-hook`: the old personal `session-continuity/session_start.py` entry in `hooks.SessionStart` | present. Removes only that command (other hooks stay, emptied groups are pruned, an empty `SessionStart` key is deleted). Reported `blocked` (nothing written) if `hooks.SessionStart` is malformed. The old script file stays on disk |
-| `claudeCode.claudeProcessWrapper` in the machine settings file, plus the wrapper and helper copied to `~/.claude/forgeloop/` | only if the user opts in (`--durable`) and the key is absent. A different existing value is never overwritten; it is reported as `unknown` with the manual line. A machine file with comments (not strict JSON) is left byte-identical and only this item is skipped. A broken `~/.claude/settings.json` does not block it, and the reverse |
+| `tmux-end-rule`: `Bash(python3 <home>/.claude/forgeloop/forgeloop_tmux.py end-current)` in `permissions.allow` | durable items only (default on a Remote-SSH VM, or `--durable`). Lets a session close its own tmux session at the end without a prompt. Same `ok`/`pending`/`blocked` handling as `session-allow-rule` (blocked on a wrong type or a space in the home path) |
+| `claudeCode.claudeProcessWrapper` in the machine settings file, plus the wrapper and helper copied to `~/.claude/forgeloop/` | default on a Remote-SSH VM; elsewhere only if the user opts in (`--durable`); skipped with `--no-durable`. Needs the key to be absent. A different existing value is never overwritten; it is reported as `unknown` with the manual line. A machine file with comments (not strict JSON) is left byte-identical and only this item is skipped. A broken `~/.claude/settings.json` does not block it, and the reverse |
 
-Durable sessions need the plugin install: `scripts/install.sh` does not ship `scripts/`, so on that layout the durable items are reported `unknown` and nothing is written. Re-run `/forgeloop:setup --durable` after each plugin upgrade; the installed copy is not refreshed automatically (`--check` reports it).
+Durable sessions need the plugin install: `scripts/install.sh` does not ship `scripts/`, so on that layout the durable items are reported `unknown` and nothing is written. Re-run `/forgeloop:setup` after each plugin upgrade; the installed copy is not refreshed automatically (`--check` reports it).
 
 Warning to show with the durable question: once set, every VS Code window on this VM
 uses the wrapper. It passes everything through unchanged except a real Claude session
@@ -58,10 +60,10 @@ settings file, or set `FORGELOOP_DURABLE=off`.
    unchanged. If it exits 2, the settings file is not strict JSON: show the manual lines
    it printed and stop. Nothing was changed.
 3. If nothing is pending, say so and stop.
-4. Ask the user for approval to apply the diff. Ask separately whether to turn on the
-   ASD-STE100 answer style (default no). Also ask separately whether to enable durable
-   VS Code sessions (default no) and show the warning above.
-5. After approval, run `apply`, adding `--ste` and `--durable` only if the user opted in (pass `--durable` to `plan` and `--check` too). Show the
+4. Ask the user for approval to apply the diff. The ASD-STE100 answer style is already on by default; tell the user it can be turned off with `FORGELOOP_STYLE=off` or `off` in `~/.claude/forgeloop/style`, and do not ask about it. On a Remote-SSH VM the durable items are already in the diff
+   (default on): show the warning above and let the user drop them with `--no-durable`. On
+   other hosts, ask separately whether to enable durable VS Code sessions (default no).
+5. After approval, run `apply`, adding `--ste` only if the user asks to pin the style file, `--durable` only on a non-VM host where the user opted in, and `--no-durable` if the user declined on a VM (pass the same flags to `plan` and `--check`). Show the
    backup path it prints. Then run `--check` and report the result.
 
 ## If the write is denied

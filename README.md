@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.15.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.16.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -383,7 +383,7 @@ Once installed, ForgeLoop adds its conventions to every session through a
 `SessionStart` hook, so Claude answers the same way everywhere:
 
 - **Status reports** (when you ask for one): context, what was done in plain words,
-  visual progress, a cluster block from `cluster_status.py` when cluster work is
+  a flow chart of the current task (✅ done and tested, 🔄 in progress; current task plus its neighbouring stages) with progress bars, a cluster block from `cluster_status.py` (free GPUs, your jobs with a one-line purpose) when cluster work is
   involved, and a closing **Next:** / **What's stopping us:** / **From you:**.
 - **Summaries** (when you ask for one): project context, assignment context,
   milestones with evidence, then the status format from progress onward.
@@ -393,10 +393,11 @@ Layers, later wins: the plugin's `conventions.md` (team default), your
 `~/.claude/forgeloop/conventions.md` (personal), and the `## Conventions` section of
 a repo's `.claude/forgeloop.md`. Set `FORGELOOP_CONVENTIONS=off` to disable.
 
-**Answer style (opt-in):** Claude can write every chat reply in ASD-STE100 Simplified
+**Answer style (on by default):** Claude can write every chat reply in ASD-STE100 Simplified
 Technical English: short sentences, active voice, one word per meaning, no idioms, and
-no hidden risks. It is off by default. Turn it on with `FORGELOOP_STYLE=ste` or by
-putting `ste` on the first line of `~/.claude/forgeloop/style`. The rules are in
+no hidden risks. It is on by default. Turn it off with `FORGELOOP_STYLE=off` or by
+putting `off` on the first line of `~/.claude/forgeloop/style`. The environment variable wins over the file;
+`ste` in either one keeps it on. The rules are in
 [`styles/ste.md`](styles/ste.md). They apply to chat replies only, not to code,
 commands, or commit messages.
 
@@ -408,7 +409,7 @@ one has an off switch or a file under `~/.claude/forgeloop/`:
 | Feature | Needs settings? | Off switch or file |
 |---------|-----------------|--------------------|
 | Session conventions (`SessionStart` hook) | No | `FORGELOOP_CONVENTIONS=off`; personal layer `~/.claude/forgeloop/conventions.md` |
-| ASD-STE100 answer style | No (opt-in) | `FORGELOOP_STYLE=ste` or `~/.claude/forgeloop/style`; off by default |
+| ASD-STE100 answer style | No (on by default) | `FORGELOOP_STYLE=off` or `off` in `~/.claude/forgeloop/style` turns it off |
 | Cost heat map refresh (background hook) | No | `FORGELOOP_COST_HEATMAP=off` |
 | Session cost band (mod) | Only on Claude Code older than 2.1.287: `env.CLAUDE_CODE_ENABLE_FUNCTION_HOOKS="1"` | `FORGELOOP_COST_BAND=off` |
 | Saved-session picker (`SessionStart` hook) | Allow rule and old-hook removal, via `/forgeloop:setup` (optional; works without, with a permission prompt) | `FORGELOOP_SESSIONS=off` (legacy `SESSION_CONTINUITY=off`) |
@@ -419,10 +420,10 @@ one has an off switch or a file under `~/.claude/forgeloop/`:
 `~/.claude/settings.json` (the env flag for an old CLI, the plugin entries
 `extraKnownMarketplaces.forgeloop` and `enabledPlugins`, the session-picker allow rule,
 and removal of the personal `session-continuity` hook entry), asks for approval, then writes
-with a timestamped backup (`settings.json.forgeloop-bak-<UTC time>`). The ASD-STE100 style
-file is created only if you opt in. `/forgeloop:setup --check` writes nothing. You can
+with a timestamped backup (`settings.json.forgeloop-bak-<UTC time>`). The ASD-STE100 style is on by default, so no file is
+needed; the file is written only with `--ste` (it pins `ste`). `/forgeloop:setup --check` writes nothing. You can
 also run the script in a terminal: `python3 skills/setup/forgeloop_setup.py plan`, then
-`apply` (add `--ste` for the style). It only adds absent keys, never changes an existing
+`apply` (add `--ste` to write `ste` into the style file). It only adds absent keys, never changes an existing
 value, and refuses to touch a settings file that is not strict JSON.
 
 **Setup hint.** On the first session after each ForgeLoop version, the `SessionStart`
@@ -471,7 +472,9 @@ helper delete any `session_state_<key>.md` in any `.claude` directory.
 
 On a Remote-SSH VM, `/forgeloop:setup --durable` makes a new VS Code session run as a
 Remote Control server inside tmux, so it outlives a closed laptop; stop it with
-`/forgeloop:tmux-session stop`. See [`docs/durable-sessions.md`](docs/durable-sessions.md).
+`/forgeloop:tmux-session stop`. On a Remote-SSH VM, `/forgeloop:setup` now includes the
+durable items by default (still one approval of the diff per VM; `--no-durable` skips them),
+and a session closes its own tmux session after it writes its end-of-session summary. See [`docs/durable-sessions.md`](docs/durable-sessions.md).
 
 ## Cluster Status
 
@@ -479,9 +482,11 @@ Remote Control server inside tmux, so it outlives a closed laptop; stop it with
 python3 skills/cluster-loop/cluster_status.py --job <id> [--log <run log>]   # or --mine
 ```
 
-One row per job: progress, finish time next to the allocation's expiry, and a state
-(`✓ on track`, `⚠ killed before done`, `⚠ stalled`, ...), plus a compact GPU line per
-node and warnings with a proposed action. `--detail` adds per-GPU numbers,
+A "what can I use" block: `🟢 Free now` (free GPUs per node), `🔴 Full` (full nodes are
+normal, not a warning), one `🧑‍💻 Your job` line per job (id, name, node, end time) with a
+`does:` line of evidence for the assistant, and `⚠️` lines only for real problems of the `--job` run (or its nodes); `--warnings` shows every warning.
+`--plain` prints the previous default (one row per job with progress, finish time and
+expiry, a GPU line per node, warnings). `--detail` adds per-GPU numbers,
 processes, containers, and disk. Built for speed: one SLURM round trip, parallel
 node probes, reused ssh, short caches. Also available as
 `/forgeloop:cluster-loop status`.

@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.16.0
+
+- **ASD-STE100 answer style is now on by default** for all users (it was opt-in). Precedence:
+  a non-empty `FORGELOOP_STYLE` wins (`ste` is on, any other value is off); else the first
+  line of `~/.claude/forgeloop/style` (`ste` is on, any other value is off); else on. Turn it
+  off with `FORGELOOP_STYLE=off` or a style file that contains `off`. `/forgeloop:setup`
+  reports the `ste-style` item as `ok` ("on by default"); `--ste` still writes `ste` into the
+  style file, idempotently, and never changes a file the user set to another value.
+- **Durable sessions are the default on a Remote-SSH VM**: `/forgeloop:setup` includes the
+  durable items (wrapper copy, VS Code machine setting) when the host classifies as
+  `remote_ssh`. You still approve the diff once per VM; the plugin never writes the VS Code
+  setting silently. `--durable` forces them on; new `--no-durable` skips them. The one-line
+  setup hint uses the same default, so a pending durable item makes it fire on a VM.
+  Other hosts behave as before.
+- **Session end closes the tmux session**: new `forgeloop_tmux.py end-current` closes the
+  current tmux session about 2 seconds later, only when `$TMUX` is set and the session name
+  starts with `fl-`; otherwise it prints one line and does nothing. The 57-minute idle
+  checkpoint runs it as its last step, after the summary is written (unattended), and so
+  does an explicit request such as "end session". The idle checkpoint closes the session
+  after 57 idle minutes even if you are still attached (summary saved first), and closing
+  needs `TMUX_PANE`.
+- **New setup item `tmux-end-rule`** (durable only): an allow rule for exactly
+  `python3 ~/.claude/forgeloop/forgeloop_tmux.py end-current` in `permissions.allow`.
+- **Status format has a flow chart**: Progress now starts with a FLOW chart, then progress
+  bars for the current task only, then Cluster and Close. Marks: ✅ done and tested, 🔄 in
+  progress, blank not started. Scope: the current task and its subtasks, its parent stage,
+  and the stages directly before and after; older finished work collapses into one
+  `earlier:` line. Bars count only ✅ steps. Summaries inherit it.
+- **Cluster block is a "what can I use" view**: `cluster_status.py` now prints `🟢 Free now`
+  (free GPUs per node, most free first), `🔴 Full` (full is normal, never a warning), one
+  `🧑‍💻 Your job` line per job (id, SLURM name, node, end time) with a `does:` evidence line
+  (step names, GPU-holding process commands with secrets stripped, containers, tmux session,
+  log name), and `⚠️` lines only for real problems of the run in scope (a `--job` run or its
+  nodes; `--mine` alone shows none; `--warnings`, `--plain`, `--detail` show all; the exit code
+  counts only shown warnings; `--json` stays complete with a `relevant` flag). `--plain` prints the previous default;
+  `--detail` is unchanged; `--json` stays compatible and adds `does_evidence` per job and
+  `cluster_gpus`. Status reports add the job name and a four-word purpose sentence per job.
+
 ## 0.15.0
 
 - **Saved-session picker moved into the plugin**: a new `SessionStart` hook

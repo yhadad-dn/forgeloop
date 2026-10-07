@@ -248,5 +248,61 @@ class NameInjectionTests(unittest.TestCase):
         self.assertEqual(calls, [])
 
 
+class EndCurrentTests(unittest.TestCase):
+    def setUp(self):
+        self.m = load_module()
+
+    def runner(self, name, calls):
+        def run(cmd, **kw):
+            calls.append(cmd)
+            if cmd[:2] == ["tmux", "display-message"]:
+                return Result(0, name + "\n")
+            return Result(0, "")
+        return run
+
+    def test_in_forgeloop_session_calls_delayed_stop_only(self):
+        calls, out = [], io.StringIO()
+        rc = self.m.end_current({"TMUX": "/tmp/tmux-1/default,1,0", "TMUX_PANE": "%3"}, self.runner("fl-proj-20260101-000000", calls), out)
+        self.assertEqual(rc, 0)
+        self.assertEqual(calls[0], ["tmux", "display-message", "-p", "-t", "%3", "#S"])
+        self.assertEqual(calls[1], ["tmux", "has-session", "-t", "=fl-proj-20260101-000000"])
+        self.assertEqual(calls[2][:3], ["tmux", "run-shell", "-b"])
+        self.assertIn("sleep 2; tmux kill-session", calls[2][3])
+        self.assertFalse(any(c[1] == "kill-session" for c in calls))
+
+    def test_no_tmux_env_touches_nothing(self):
+        calls, out = [], io.StringIO()
+        self.assertEqual(self.m.end_current({}, self.runner("fl-x", calls), out), 0)
+        self.assertEqual(calls, [])
+        self.assertEqual(out.getvalue(), "not in a ForgeLoop tmux session; nothing closed\n")
+
+    def test_missing_or_empty_pane_touches_nothing(self):
+        for env in ({"TMUX": "x"}, {"TMUX": "x", "TMUX_PANE": ""}, {"TMUX_PANE": "%1"}):
+            calls, out = [], io.StringIO()
+            self.assertEqual(self.m.end_current(env, self.runner("fl-x", calls), out), 0)
+            self.assertEqual(calls, [])
+            self.assertEqual(out.getvalue(), "not in a ForgeLoop tmux session; nothing closed\n")
+
+    def test_non_forgeloop_session_not_closed(self):
+        calls, out = [], io.StringIO()
+        self.assertEqual(self.m.end_current({"TMUX": "x", "TMUX_PANE": "%1"}, self.runner("work", calls), out), 0)
+        self.assertEqual(calls, [["tmux", "display-message", "-p", "-t", "%1", "#S"]])
+        self.assertEqual(out.getvalue(), "not in a ForgeLoop tmux session; nothing closed\n")
+
+    def test_tmux_failure_or_missing_is_safe(self):
+        out = io.StringIO()
+        def boom(cmd, **kw):
+            raise OSError("no tmux")
+        self.assertEqual(self.m.end_current({"TMUX": "x", "TMUX_PANE": "%1"}, boom, out), 0)
+        self.assertIn("nothing closed", out.getvalue())
+
+    def test_cli_without_tmux_env(self):
+        import subprocess, sys
+        env = {k: v for k, v in os.environ.items() if k != "TMUX"}
+        p = subprocess.run([sys.executable, str(SCRIPT), "end-current"], capture_output=True, text=True, env=env)
+        self.assertEqual(p.returncode, 0)
+        self.assertEqual(p.stdout, "not in a ForgeLoop tmux session; nothing closed\n")
+
+
 if __name__ == "__main__":
     unittest.main()

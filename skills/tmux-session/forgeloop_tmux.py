@@ -101,6 +101,29 @@ def stop_session(name: str, run: Callable, delay: int = 2) -> int:
     return 0 if res.returncode == 0 else 1
 
 
+NOT_IN_SESSION = "not in a ForgeLoop tmux session; nothing closed"
+
+
+def end_current(env: Mapping[str, str], run: Callable, out) -> int:
+    """Close the tmux session this process runs in, only if it is a ForgeLoop one.
+
+    Needs both TMUX and TMUX_PANE; the pane is passed with -t so the name is this pane's session.
+
+    Uses the delayed stop_session; never calls kill-session directly. Always returns 0."""
+    name = ""
+    pane = env.get("TMUX_PANE")
+    if env.get("TMUX") and pane:
+        try:
+            res = run(["tmux", "display-message", "-p", "-t", pane, "#S"], capture_output=True, text=True)
+            if res.returncode == 0:
+                name = res.stdout.strip()
+        except OSError:
+            name = ""
+    if not name or not is_forgeloop_session(name) or stop_session(name, run) != 0:
+        out.write(NOT_IN_SESSION + "\n")
+    return 0
+
+
 def _allow_other() -> bool:
     path = os.path.join(os.path.expanduser("~"), ".claude", "forgeloop", "durable")
     try:
@@ -112,7 +135,7 @@ def _allow_other() -> bool:
 
 def main(argv: list) -> int:
     if not argv:
-        print("usage: forgeloop_tmux.py classify|name <cwd>|list|stop <name>|launcher <file>",
+        print("usage: forgeloop_tmux.py classify|name <cwd>|list|stop <name>|end-current|launcher <file>",
               file=sys.stderr)
         return 2
     cmd, args = argv[0], argv[1:]
@@ -131,6 +154,8 @@ def main(argv: list) -> int:
         if rc == 2:
             print(f"refusing to stop non-forgeloop session: {args[0]}", file=sys.stderr)
         return rc
+    if cmd == "end-current" and not args:
+        return end_current(os.environ, subprocess.run, sys.stdout)
     if cmd == "launcher" and len(args) == 1:
         with open(args[0]) as f:
             text = f.read().rstrip("\n")

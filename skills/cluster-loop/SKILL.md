@@ -149,10 +149,20 @@ Run the status script that ships in this skill's directory:
 python3 cluster_status.py --job <jobid> [--log <run log>]   # or --mine
 ```
 
-Default view, built for "status?": one row per job (what it is, node, progress bar
-with overall fraction, finish time, expiry, one-word state), one compact line per
-node (per-GPU utilization sparkline, idle GPUs), and warnings each with a proposed
-action. `--detail` adds per-GPU numbers, processes, containers, and disk.
+Default view, a "what can I use" block: `🟢 Free now` (free GPUs per node, most
+free first), `🔴 Full` (fully busy nodes; full is normal, never a warning), one
+`🧑‍💻 Your job` line per job (id, SLURM name, node, end time) with a `does:` line of
+evidence (step names, GPU-holding process command lines with secrets stripped,
+containers, tmux session, log name; `(no evidence)` if none), and a `⚠️` line only
+for a real problem (disk, stuck job, node down, ...) that belongs to a `--job` run or to
+a node that run uses. `--mine` alone shows no `⚠️` lines; `--warnings` shows every
+warning (all jobs and nodes), for when the user asks for cluster health. Show it as printed; in a
+status report add the job name and a four-word purpose sentence per job from the
+`does:` evidence, never beyond it. `--plain` prints the previous default (one row
+per job with progress bar, finish time, expiry, state; one line per node; warnings).
+`--detail` adds per-GPU numbers, processes, containers, and disk (both show all
+warnings). `--json` adds `does_evidence` per job and is complete: each warning
+(`warning_details`) and job carries `relevant`.
 
 - Finish time: a printed ETA or tqdm remaining time from the log, else a rate
   estimate from overall progress and the run step's elapsed time (marked `~`),
@@ -182,7 +192,7 @@ action. `--detail` adds per-GPU numbers, processes, containers, and disk.
 - Show the output verbatim in a code block, then explain each ⚠ warning in one line.
 - `--json` gives the same data for automation; `--raw` appends raw probe output
   when a field looks wrong.
-- Exit codes: 0 healthy, 1 warnings present, 2 job not found.
+- Exit codes: 0 healthy, 1 warnings present (only warnings that are shown count), 2 job not found.
 
 ## Stage 7: srun (on request)
 

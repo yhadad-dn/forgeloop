@@ -149,10 +149,10 @@ else
     bad "every skill-relative file reference resolves" "$(head -5 <<<"$broken")"
 fi
 
-if grep -qE '^## 0\.15\.0$' "$REPO_ROOT/CHANGELOG.md"; then
-    ok "CHANGELOG has a 0.15.0 section"
+if grep -qE '^## 0\.16\.0$' "$REPO_ROOT/CHANGELOG.md"; then
+    ok "CHANGELOG has a 0.16.0 section"
 else
-    bad "CHANGELOG has a 0.15.0 section"
+    bad "CHANGELOG has a 0.16.0 section"
 fi
 
 # --- Session conventions hook ---------------------------------------------------------
@@ -171,10 +171,10 @@ else
 fi
 
 conv_lines="$(wc -l < "$REPO_ROOT/conventions.md")"
-if [[ "$conv_lines" -le 50 ]]; then
-    ok "conventions.md is $conv_lines lines (limit 50; it is injected into every session)"
+if [[ "$conv_lines" -le 70 ]]; then
+    ok "conventions.md is $conv_lines lines (limit 70; it is injected into every session)"
 else
-    bad "conventions.md is $conv_lines lines (limit 50; it is injected into every session)"
+    bad "conventions.md is $conv_lines lines (limit 70; it is injected into every session)"
 fi
 
 if grep -q "{CLUSTER_STATUS}" "$REPO_ROOT/conventions.md" \

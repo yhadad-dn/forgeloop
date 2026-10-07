@@ -4,7 +4,9 @@
 Commands: plan (print the exact diff), apply (back up, then write), --check (print one
 line per item; exit 1 when something is pending), --team-snippet (print the JSON for a
 repo's .claude/settings.json). Writes user scope only: ~/.claude/settings.json and
-~/.claude/forgeloop/style. With the opt-in --durable it also writes two more locations:
+~/.claude/forgeloop/style. On a Remote-SSH VM (forgeloop_tmux classify says remote_ssh) the
+durable items are included by default; --durable forces them on, --no-durable skips them.
+They are the tmux-end-rule allow rule in ~/.claude/settings.json plus two more locations:
 the VS Code remote machine settings file (~/.vscode-server/data/Machine/settings.json,
 key claudeCode.claudeProcessWrapper, only when absent) and the copies
 ~/.claude/forgeloop/vscode-wrapper.sh and ~/.claude/forgeloop/forgeloop_tmux.py. Never
@@ -13,6 +15,7 @@ Python 3 standard library only.
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -43,7 +46,7 @@ MARKETPLACE_ENTRY = {"source": {"source": "github", "repo": REPO}}
 class Change:
     item: str          # "env-flag" | "ste-style" | "marketplace" | "enabled-plugin"
                        # | "durable-wrapper" | "durable-setting"
-                       # | "session-allow-rule" | "retire-session-hook"
+                       # | "session-allow-rule" | "tmux-end-rule" | "retire-session-hook"
     target: str        # settings key path or file path
     before: object
     after: object
@@ -55,24 +58,42 @@ def session_rule(root):
     return f"Bash(python3 {root}/hooks/session_state.py:*)"
 
 
-def _session_rule_change(settings):
-    rule = session_rule(PLUGIN_ROOT)
+def end_rule(home):
+    return f"Bash(python3 {home}/.claude/forgeloop/forgeloop_tmux.py end-current)"
+
+
+# Same character set as hooks/session_picker.SAFE_PATH_RE.
+SAFE_PATH_RE = re.compile(r"^[A-Za-z0-9_./+@:-]+$")
+
+
+def _allow_rule_change(settings, item, rule, path, pending_reason):
     perms = settings.get("permissions")
-    if " " in str(PLUGIN_ROOT):
-        return Change("session-allow-rule", "permissions.allow", None, rule,
-                      "plugin path contains a space, so the rule cannot match the picker's commands; not added", "blocked")
+    if not SAFE_PATH_RE.match(str(path)):
+        return Change(item, "permissions.allow", None, rule,
+                      "path contains a space or an unsafe character, so the rule cannot safely match "
+                      "the commands it is for; not added", "blocked")
     if perms is not None and not isinstance(perms, dict):
-        return Change("session-allow-rule", "permissions.allow", perms, rule,
+        return Change(item, "permissions.allow", perms, rule,
                       "'permissions' is not an object; left alone", "blocked")
     has_allow = bool(perms) and "allow" in perms
     allow = perms.get("allow") if has_allow else None
     if has_allow and not isinstance(allow, list):
-        return Change("session-allow-rule", "permissions.allow", allow, rule,
+        return Change(item, "permissions.allow", allow, rule,
                       "'permissions.allow' is not a list; left alone", "blocked")
     if allow and rule in allow:
-        return Change("session-allow-rule", "permissions.allow", rule, rule, "already present", "ok")
-    return Change("session-allow-rule", "permissions.allow", None, rule,
-                  "lets the session picker delete and load saved sessions without a prompt", "pending")
+        return Change(item, "permissions.allow", rule, rule, "already present", "ok")
+    return Change(item, "permissions.allow", None, rule, pending_reason, "pending")
+
+
+def _session_rule_change(settings):
+    return _allow_rule_change(settings, "session-allow-rule", session_rule(PLUGIN_ROOT), PLUGIN_ROOT,
+                              "lets the session picker delete and load saved sessions without a prompt")
+
+
+def _end_rule_change(settings, home):
+    return _allow_rule_change(settings, "tmux-end-rule", end_rule(home), home,
+                              "depends on the installed copy ~/.claude/forgeloop/forgeloop_tmux.py; lets the idle "
+                              "checkpoint close the current fl- tmux session without a prompt")
 
 
 def _retire_hook_change(settings):
@@ -244,10 +265,30 @@ def durable_changes(home):
     return changes
 
 
+def default_durable(home, env=None):
+    """True when this host is a Remote-SSH VM (same classification and ~/.claude/forgeloop/durable
+    yes/no file as forgeloop_tmux classify). False on any error, so non-VM hosts are unchanged."""
+    try:
+        env = os.environ if env is None else env
+        spec = importlib.util.spec_from_file_location(
+            "forgeloop_tmux_cls", PLUGIN_ROOT / "skills" / "tmux-session" / "forgeloop_tmux.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        try:
+            answer = (Path(home) / ".claude" / "forgeloop" / "durable").read_text(encoding="utf-8")
+            allow_other = answer.splitlines()[0].strip() == "yes" if answer.strip() else False
+        except OSError:
+            allow_other = False
+        return mod.classify_host(env, os.path.exists, allow_other) == "remote_ssh"
+    except Exception:
+        return False
+
+
 def compute_changes(settings, home, cli_version, want_ste, want_durable=False):
     changes = _user_changes(settings, home, cli_version, want_ste)
     if want_durable:
         changes += durable_changes(home)
+        changes.append(_end_rule_change(settings, home))
     return changes
 
 
@@ -277,7 +318,9 @@ def _user_changes(settings, home, cli_version, want_ste):
         changes.append(Change("ste-style", str(sp), current[0] if current else None, "ste",
                               "you asked for the ASD-STE100 answer style", "pending"))
     else:
-        changes.append(Change("ste-style", str(sp), None, None, "optional; not requested (use --ste)", "ok"))
+        why = ("style file turns it off; delete it or put ste in it to turn it on"
+               if current and current[0].strip() else "on by default")
+        changes.append(Change("ste-style", str(sp), current[0] if current else None, None, why, "ok"))
 
     mk = settings.get("extraKnownMarketplaces")
     ep = settings.get("enabledPlugins")
@@ -390,7 +433,8 @@ def apply_changes(settings_path, home, changes):
     if not pending:
         return ""
     backups = []
-    settings_names = ("env-flag", "marketplace", "enabled-plugin", "session-allow-rule", "retire-session-hook")
+    settings_names = ("env-flag", "marketplace", "enabled-plugin", "session-allow-rule", "tmux-end-rule",
+                      "retire-session-hook")
     other_names = ("ste-style", "durable-wrapper", "durable-setting")
     for c in pending:
         if c.item not in settings_names + other_names:
@@ -410,7 +454,7 @@ def apply_changes(settings_path, home, changes):
                 settings.setdefault("extraKnownMarketplaces", {})[MARKETPLACE] = c.after
             elif c.item == "enabled-plugin":
                 settings.setdefault("enabledPlugins", {})[PLUGIN_KEY] = c.after
-            elif c.item == "session-allow-rule":
+            elif c.item in ("session-allow-rule", "tmux-end-rule"):
                 perms = settings.setdefault("permissions", {})
                 if not isinstance(perms, dict) or not isinstance(perms.setdefault("allow", []), list):
                     raise ValueError("'permissions' or 'permissions.allow' has the wrong type")
@@ -445,6 +489,7 @@ def main(argv):
     ap.add_argument("--team-snippet", action="store_true")
     ap.add_argument("--ste", action="store_true")
     ap.add_argument("--durable", action="store_true")
+    ap.add_argument("--no-durable", action="store_true")
     ap.add_argument("--settings")
     ap.add_argument("--home")
     ap.add_argument("--cli-version")
@@ -455,19 +500,20 @@ def main(argv):
         return 0
     home = args.home or str(Path.home())
     settings_path = args.settings or str(Path(home) / ".claude" / "settings.json")
+    durable = args.durable or (not args.no_durable and default_durable(home))
     settings, err = load_settings(settings_path)
     broken = settings is None
     if broken:
         print(f"error: cannot parse {settings_path}: {err}")
         print(manual_lines())
-        if not args.durable:
+        if not durable:
             return 2
         settings = {}
     cli = parse_version(args.cli_version) if args.cli_version else detect_cli_version()
     if broken:  # only the machine-file items may proceed; user-settings items change nothing
-        changes = durable_changes(home)
+        changes = durable_changes(home) if durable else []
     else:
-        changes = compute_changes(settings, home, cli, args.ste, args.durable)
+        changes = compute_changes(settings, home, cli, args.ste, durable)
 
     if args.check:
         for c in changes:

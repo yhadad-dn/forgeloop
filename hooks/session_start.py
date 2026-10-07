@@ -12,9 +12,11 @@ whether /forgeloop:setup has anything to apply and, if so, adds one line to the 
 It never writes settings.json; it writes only ~/.claude/forgeloop/setup-stamp.
 Set FORGELOOP_SETUP_HINT=off to disable.
 
-Optional answer style: when FORGELOOP_STYLE=ste, or the first line of
-~/.claude/forgeloop/style is "ste", the plugin's styles/ste.md (ASD-STE100) is added
-after the team layer. Any other value, or no setting, adds nothing.
+Answer style (ON by default): the plugin's styles/ste.md (ASD-STE100) is added after the
+team layer. Precedence: a non-empty FORGELOOP_STYLE wins ("ste" is on, any other value such
+as off, 0, false or no is off); else the first line of ~/.claude/forgeloop/style ("ste" is
+on, any other non-empty value is off); else (no env, no file, or an empty file) it is on.
+Turn it off with FORGELOOP_STYLE=off or a style file that contains "off".
 
 Durable-session question: ForgeLoop supports Remote-SSH hosts by default. On a different
 kind of remote host (container, WSL, Codespaces; forgeloop_tmux.classify_host says
@@ -46,7 +48,9 @@ def style_layer(root: Path) -> str:
     if not name:
         lines = read(Path.home() / ".claude" / "forgeloop" / "style").splitlines()
         name = lines[0].strip().lower() if lines else ""
-    return read(root / "styles" / "ste.md") if name == "ste" else ""
+    if name and name != "ste":
+        return ""
+    return read(root / "styles" / "ste.md")
 
 
 SETUP_HINT = "ForgeLoop: settings need a one-time check. Run /forgeloop:setup."
@@ -74,7 +78,7 @@ def setup_hint(root: Path, home: Path) -> str:
         settings, err = mod.load_settings(str(home / ".claude" / "settings.json"))
         if settings is None:
             return ""
-        pending = any(c.status == "pending" for c in mod.compute_changes(settings, str(home), cli, False))
+        pending = any(c.status == "pending" for c in mod.compute_changes(settings, str(home), cli, False, mod.default_durable(str(home))))
         stamp.parent.mkdir(parents=True, exist_ok=True)
         stamp.write_text(version + "\n", encoding="utf-8")
         return SETUP_HINT if pending else ""
