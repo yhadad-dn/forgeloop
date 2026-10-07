@@ -150,9 +150,9 @@ else
 fi
 
 if grep -qE '^## 0\.17\.0$' "$REPO_ROOT/CHANGELOG.md"; then
-    ok "CHANGELOG has a 0.17.0 section"
+    ok "CHANGELOG has a 0.17.1 section"
 else
-    bad "CHANGELOG has a 0.17.0 section"
+    bad "CHANGELOG has a 0.17.1 section"
 fi
 
 # --- Session conventions hook ---------------------------------------------------------
