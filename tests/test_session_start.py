@@ -80,9 +80,22 @@ class SessionStartHookTests(unittest.TestCase):
         self.assertIn("done and tested", ctx)
         self.assertIn("🔄", ctx)
         self.assertIn("in progress", ctx)
+        self.assertIn("⬜", ctx)
+        self.assertIn("not started", ctx)
+        self.assertNotIn("no mark", ctx)
         self.assertIn("directly before and after", ctx)
         self.assertIn("earlier:", ctx)
         self.assertLess(ctx.index("FLOW"), ctx.index("PROGRESS"))
+
+    def test_conventions_cap_and_run_pointer(self):
+        text = (ROOT / "conventions.md").read_text()
+        self.assertLessEqual(len(text.splitlines()), 70)
+        self.assertIn("skills/implement-loop/run-card.md", text)
+        self.assertIn("forgeloop_run.py", text)
+        self.assertIn("four-word sentence", text)
+        card = (ROOT / "skills" / "implement-loop" / "run-card.md").read_text()
+        for needle in ("forgeloop_run.py start", "600", "3420", "card", "--kind finish", "PASS/FAIL", "over one hour"):
+            self.assertIn(needle, card)
 
     def test_personal_and_repo_layers_appended_in_order(self):
         (self.home / ".claude" / "forgeloop").mkdir(parents=True)

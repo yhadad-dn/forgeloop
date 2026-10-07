@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.17.0
+
+- **Flow chart has a not-started mark**: a step not started now shows ⬜ (white square)
+  instead of no mark. Marks: ✅ done and tested, 🔄 in progress, ⬜ not started. Bars still
+  count only ✅ steps.
+- **Run visibility** (new `skills/implement-loop/run-card.md` and `forgeloop_run.py`): GPU
+  runs and test suites expected to take over one hour start only with `forgeloop_run.py
+  start`, which prints a RUN CARD and keeps a record in `.claude/run-proofs/`. If the run is
+  the only thing happening, a ScheduleWakeup of 600 s gives a one-line `status` update every
+  10 minutes until it ends (it stops when you send other work); otherwise updates come only
+  when you ask. At the end `card --kind finish` is shown and each criterion gets PASS/FAIL
+  with a quoted log line (the script never judges). A wakeup replaces the pending idle
+  checkpoint, so it is re-armed (3420 s) after the run or the cadence ends. The run step
+  shows as 🔄 with a bar in the flow chart.
+- **Run-proof gate** Stage C uses `forgeloop_run.py`; a run without a record
+  (`.claude/run-proofs/<task>-iter<N>.json`, terminal state) is not counted as proof.
+  `RUN_PROOF_RESULT` cites `record_path`. FAIL, ERROR, timeout handling and criteria are
+  unchanged.
+- **Cluster allocation needs no ForgeLoop approval**: the approval gate is replaced by an
+  Announce step. The assistant allocates only a node the recommender marks free (all
+  pre-flight checks and recommendations kept), then reports node, partition, job name,
+  duration, expiry in Israel time, and `scancel <jobid>`. It never allocates when no node is
+  free, never takes more than one node unless the task needs it, and never touches another
+  user's job. A GPU run proof no longer asks for a job id: it reuses `RUN_JOBID` or
+  allocates and announces. Claude Code's own permission prompt for `salloc` may still appear;
+  it is separate from ForgeLoop (no allow rule is added).
+
 ## 0.16.0
 
 - **ASD-STE100 answer style is now on by default** for all users (it was opt-in). Precedence:

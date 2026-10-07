@@ -549,6 +549,82 @@ check \
     "$REPO_ROOT/README.md" \
     "Current version: ${plugin_version//./\\.}"
 
+check \
+    "run-card.md exists and names forgeloop_run.py start" \
+    "$SKILL_DIR/implement-loop/run-card.md" \
+    "forgeloop_run\\.py start"
+for f in run-proof.md SKILL.md; do
+check \
+    "implement-loop/$f references run-card.md" \
+    "$SKILL_DIR/implement-loop/$f" \
+    "run-card\\.md"
+done
+check \
+    "cluster-loop SKILL.md references run-card.md" \
+    "$SKILL_DIR/cluster-loop/SKILL.md" \
+    "run-card\\.md"
+check \
+    "run-proof.md Stage C uses forgeloop_run.py and requires a terminal run record" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "not counted as proof"
+check \
+    "run-proof.md GPU proof allocates (announcing) or reuses RUN_JOBID" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "never asks the user for a job id"
+
+# --- Repair: wrapper path, run-proof state, record binding, re-arm -----------------
+WRAP='\$\{CLAUDE_PLUGIN_ROOT\}/skills/implement-loop/forgeloop_run\.py'
+for f in implement-loop/run-card.md implement-loop/run-proof.md cluster-loop/SKILL.md; do
+check \
+    "$f calls the wrapper through CLAUDE_PLUGIN_ROOT" \
+    "$SKILL_DIR/$f" \
+    "python3 \"$WRAP\""
+check_absent \
+    "$f has no repo-relative wrapper path" \
+    "$SKILL_DIR/$f" \
+    "python3 (\\.\\./|skills/)[^ ]*forgeloop_run|python3 forgeloop_run"
+done
+check \
+    "implement-loop SKILL.md names the wrapper through CLAUDE_PLUGIN_ROOT" \
+    "$SKILL_DIR/implement-loop/SKILL.md" \
+    "$WRAP"
+check \
+    "run-card.md does not guess a path when CLAUDE_PLUGIN_ROOT is empty" \
+    "$SKILL_DIR/implement-loop/run-card.md" \
+    "CLAUDE_PLUGIN_ROOT. is empty.*do not guess"
+check \
+    "run-card.md: only passed supports PASS" \
+    "$SKILL_DIR/implement-loop/run-card.md" \
+    "Only state .passed. can support"
+check \
+    "run-proof.md: only passed supports PASS, failed is FAIL" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "Only state .passed. can support an overall PASS"
+check \
+    "run-proof.md Required Output validates the state" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "state: passed \\| failed \\| timeout \\| lost \\| error"
+check \
+    "run-proof.md Stage C compares record command and command sha256 to RUN_PROOF" \
+    "$SKILL_DIR/implement-loop/run-proof.md" \
+    "command_sha256"
+check \
+    "run-card.md requires --criteria-file when pass_criteria exist" \
+    "$SKILL_DIR/implement-loop/run-card.md" \
+    "[-][-]criteria-file.*pass_criteria|pass_criteria.*[-][-]criteria-file"
+check \
+    "run-card.md: secrets go by environment variable, not argument" \
+    "$SKILL_DIR/implement-loop/run-card.md" \
+    "environment variable, not by argument"
+check \
+    "run-card.md ties the re-arm to the finish card turn" \
+    "$SKILL_DIR/implement-loop/run-card.md" \
+    "same turn in which you show the finish card, call ScheduleWakeup\\(3420\\)"
+check \
+    "run-card.md re-arms when the user sends other work" \
+    "$SKILL_DIR/implement-loop/run-card.md" \
+    "other work during the cadence, stop the cadence and re-arm in that turn"
+
 # --- Summary -------------------------------------------------------------------
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

@@ -85,6 +85,9 @@ When a session ends, it writes its summary and then closes its own tmux session:
   resumed with `claude remote-control --continue` (alone, no `--spawn`) for about four hours.
 - **On request**: say "end session" (or "wrap up and close"). Claude writes the same
   summary, runs `end-current`, and does not arm another checkpoint.
+- Run updates (`forgeloop_run.py`, every 10 minutes) use ScheduleWakeup, which replaces
+  the pending idle checkpoint; after the run ends or the cadence stops, the assistant
+  re-arms the 57-minute idle checkpoint.
 - The idle checkpoint closes the session after 57 idle minutes even if you are still
   attached (the summary is saved first), and closing needs `TMUX_PANE` as well as `TMUX`.
 - `end-current` acts only when `$TMUX` is set and the tmux session name starts with `fl-`;

@@ -91,8 +91,9 @@ Extract or derive:
    dependency is mandatory.
 4. Validate `RUN_PROOF` per `run-proof.md`. If it is missing or
    incomplete, stop and ask the user for it — never invent a command or criteria.
-   For `device: gpu`, get an active SLURM job ID from the user or offer
-   `/cluster-loop` to allocate one; record it as `RUN_JOBID`.
+   For `device: gpu`, reuse `RUN_JOBID` if one exists; otherwise allocate through
+   `/cluster-loop` (it announces the allocation to the user) and record `RUN_JOBID`.
+   Never ask the user for a job id.
 5. Assert a clean working tree. `HEAD` is the baseline for iteration 1's scope, Stage R's
    N=2 fallback and Stage B's file list, which is only valid if nothing was dirty at
    invocation. Run from inside the target repo:
@@ -263,8 +264,11 @@ Read `run-proof.md`.
 Run the task's `RUN_PROOF` command for real: locally for `device: cpu`, inside the
 SLURM allocation `RUN_JOBID` via `srun --jobid` for `device: gpu`. Before a GPU run,
 confirm the allocation is `R`, a GPU is visible, and the node sees the current
-working tree. Capture the full log and judge every `pass_criteria` entry with quoted
-log evidence.
+working tree. Start the run with `python3 "${CLAUDE_PLUGIN_ROOT}/skills/implement-loop/forgeloop_run.py" start` (if `CLAUDE_PLUGIN_ROOT` is
+empty, do not guess a path; tell the user) and follow `run-card.md` (run card,
+update cadence, finish card); a run without a record in
+`.claude/run-proofs/<task>-iter<N>.json` with a terminal state is not counted as proof.
+Judge every `pass_criteria` entry with quoted log evidence.
 
 - `FAIL` (code ran, criteria not met) produces a `FIX_BRIEF` and another iteration.
 - `ERROR` (allocation, environment, or tree-sync problem) is never a pass and never a

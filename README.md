@@ -6,7 +6,7 @@
 
 **Gated workflow skills for agentic planning, implementation, review, and repair.**
 
-**Current version: 0.16.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
+**Current version: 0.17.0** (see [`CHANGELOG.md`](CHANGELOG.md) for release notes; the
 version of record is `.claude-plugin/plugin.json`).
 
 ForgeLoop is a portable Claude/Codex workflow pack for teams that want agentic coding
@@ -383,11 +383,20 @@ Once installed, ForgeLoop adds its conventions to every session through a
 `SessionStart` hook, so Claude answers the same way everywhere:
 
 - **Status reports** (when you ask for one): context, what was done in plain words,
-  a flow chart of the current task (✅ done and tested, 🔄 in progress; current task plus its neighbouring stages) with progress bars, a cluster block from `cluster_status.py` (free GPUs, your jobs with a one-line purpose) when cluster work is
+  a flow chart of the current task (✅ done and tested, 🔄 in progress, ⬜ not started; current task plus its neighbouring stages) with progress bars, a cluster block from `cluster_status.py` (free GPUs, your jobs with a one-line purpose) when cluster work is
   involved, and a closing **Next:** / **What's stopping us:** / **From you:**.
 - **Summaries** (when you ask for one): project context, assignment context,
   milestones with evidence, then the status format from progress onward.
 - **Times** in Israel time only.
+- **Long runs** (GPU runs and test suites over an hour): started only with
+  `skills/implement-loop/forgeloop_run.py`, which prints a run card, keeps a record in
+  `.claude/run-proofs/`, and gives a one-line update every 10 minutes when the run is
+  the only thing happening (see `skills/implement-loop/run-card.md`). A run without a
+  record with a terminal state is not counted as run proof.
+- **Cluster allocation has no ForgeLoop approval step**: the assistant may allocate a
+  free node alone, but it must tell you node, partition, job name, duration, expiry
+  (Israel time) and `scancel <jobid>`. Claude Code's own permission prompt for `salloc`
+  may still appear; it is separate from ForgeLoop (no allow rule is added).
 
 Layers, later wins: the plugin's `conventions.md` (team default), your
 `~/.claude/forgeloop/conventions.md` (personal), and the `## Conventions` section of

@@ -14,7 +14,7 @@ description: >
 Manage SLURM cluster allocations through a disciplined, gate-driven flow:
 
 ```text
-pre-flight -> allocation map -> recommendation -> approval gate
+pre-flight -> allocation map -> recommendation -> announce
           -> tmux + salloc -> confirm -> srun
 ```
 
@@ -107,16 +107,16 @@ Read `node-recommender.md`.
 Score each node on three criteria: SLURM idle, no squeue entries, clean ps.
 Present a sorted recommendation table with explicit reasoning per node.
 
-## Stage 4: Approval Gate
+## Stage 4: Announce
 
-Ask the user to confirm before any allocation:
-
-- Which node(s) to allocate
-- Partition (`XAI` or `TEST`)
-- Job name
-- Duration (format: `HH:MM:SS`)
-
-**Do not proceed to Stage 5 without explicit user confirmation of all four fields.**
+No approval step: you may allocate alone, but you MUST tell the user. Allocate only a
+node the recommender marks free. Pick partition (`XAI` or `TEST`), job name, and duration
+(`HH:MM:SS`) from the existing defaults. If the recommender finds no free node, do not
+allocate; report that. Never allocate more than one node unless the task needs it, and
+say so. Never touch another user's job. Right after the allocation, report node,
+partition, job name, duration, expiry in Israel time, and how to release it
+(`scancel <jobid>`). See `allocate.md`. Claude Code may show its own permission prompt
+for `salloc`; that is separate from ForgeLoop.
 
 ## Stage 5: Allocate
 
@@ -140,6 +140,13 @@ When allocation is confirmed active, display:
 Then show the output of `python3 cluster_status.py --job <jobid>` (Stage 8) so the
 user sees the allocated GPUs are free: no foreign processes or containers, and
 memory near zero.
+
+## Long runs
+
+GPU runs and test suites over one hour start only with
+`python3 "${CLAUDE_PLUGIN_ROOT}/skills/implement-loop/forgeloop_run.py" start ...`; if `CLAUDE_PLUGIN_ROOT` is
+empty, do not guess a path, tell the user. The update cadence and finish card are in
+`../implement-loop/run-card.md`.
 
 ## Stage 8: Status (on request, and in every status report)
 

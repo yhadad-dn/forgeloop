@@ -8,25 +8,29 @@ allocation alive across terminal disconnects.
 All of the following must be true before running any command here:
 
 - Pre-flight passed
-- Allocation map displayed to user
-- Recommendation presented to user
-- **User has explicitly confirmed**: node(s), partition, job name, and duration
+- Allocation map built
+- Recommendation made, and it marks the node free (idle + no jobs + clean ps)
 
-## Approval Gate
+If the recommender finds no free node, do not allocate. Report that instead.
 
-Present this confirmation prompt and wait for explicit user confirmation:
+## Announce
 
-```
-Allocating:
-  Node(s):    <node-list>
-  Partition:  <XAI|TEST>
-  Job name:   <job-name>
-  Duration:   <HH:MM:SS>
+There is no approval step: you may allocate alone, but you MUST tell the user.
 
-Confirm? [yes/no]
-```
+- Allocate only a node the recommender marks free. Keep every pre-flight check and
+  every recommendation rule.
+- Pick partition (`XAI` or `TEST`), job name, and duration (`HH:MM:SS`) by the existing
+  defaults.
+- Never allocate more than one node unless the task needs it, and say so.
+- Never touch another user's job.
+- Run the allocation below, then report right away in the reply: node, partition, job
+  name, duration, expiry in Israel time, and how to release it (`scancel <jobid>`).
+- The reply must contain all six announce fields (node, partition, job name, duration,
+  expiry in Israel time, scancel hint) BEFORE any `srun` or run-wrapper call. This
+  holds also when the allocation is made inside implement-loop Stage 0.
 
-**Do not run `tmux new-session` until the user confirms all four fields.**
+Claude Code's own permission prompt for `salloc` may still appear. It is separate from
+ForgeLoop.
 
 ## Allocation Protocol
 
@@ -55,7 +59,8 @@ tmux new-session -d -s "${SESSION}" \
 
 ```bash
 for i in $(seq 1 10); do
-  JOBID=$(squeue -u $USER -h -o "%i %T %j" | grep "${SLURM_JOB_NAME}" | awk '$2=="R"{print $1}')
+  # exact job-name match (not grep), newest id first; or take the id from the salloc output
+  JOBID=$(squeue -u $USER -h -o "%i %T %j" | awk -v n="${SLURM_JOB_NAME}" '$3==n && $2=="R"{print $1}' | sort -n | tail -1)
   [[ -n "${JOBID}" ]] && break
   sleep 3
 done
@@ -74,19 +79,24 @@ If `salloc` exits before reaching state `R` (node was grabbed by another user):
 1. `tmux kill-session -t "${SESSION}"` — clean up silently
 2. Return to Stage 2 (allocation map): re-scan all nodes automatically
 3. Return to Stage 3 (node recommender): re-present updated recommendation
-4. Prefix the new map with: `"Node was taken. Updated allocation map:"`
+4. Prefix the new map with: `"Node was taken. Updated allocation map:"` (still announce the final allocation)
 5. No error — treat as a normal re-scan, not a failure
 
 ## Success Output
 
 ```
-ALLOCATION CONFIRMED
+ALLOCATION CONFIRMED (announce this to the user)
+(checklist: node, partition, job name, duration, expiry in Israel time, scancel hint,
+all in the reply BEFORE any `srun` or run-wrapper call)
 
   tmux session: cluster-<node>-<YYYYMMDD-HHMM>
   SLURM job ID: <JOBID>
   Node list:    <node1,node2,...>
   Partition:    <XAI|TEST>
-  Expires at:   <datetime>
+  Expires at:   <datetime, Israel time>
+  Job name:     <SLURM job name>
+  Duration:     <HH:MM:SS>
+  Release:      scancel <jobid>
 
 To attach:  tmux attach -t cluster-<node>-<YYYYMMDD-HHMM>
 To srun:    /cluster-loop srun <JOBID> <command>

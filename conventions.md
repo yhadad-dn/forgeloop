@@ -14,12 +14,11 @@ Use this format only when the user asks for a status (not for every reply):
      task with all its subtasks, plus the parent stage it sits in and the stages
      directly before and after it. Collapse older finished work into one line
      (`earlier: picker 0.15.0 ✅`) only when it matters for context.
-     Marks after a step: ✅ done and tested (a test, run, or check passed; name the
-     proof in the report), 🔄 in progress, no mark = not started.
-     Name steps in plain words (same rule as **Done**).
+     Marks after a step: ✅ done and tested (name the proof in the report),
+     🔄 in progress, ⬜ not started. Name steps in plain words (same rule as **Done**).
    - **Progress bars** for the current task only: one line per group with a count
-     ("3 of 3 features built and tested"), plus an Overall line. A bar is the count of
-     ✅ steps divided by all steps, never a guess; 🔄 steps do not count.
+     ("3 of 3 features built and tested"), plus an Overall line. A bar is ✅ steps
+     divided by all steps, never a guess; 🔄 and ⬜ steps do not count.
 
    ```
    STATUS: ForgeLoop 0.16.0 (durable default, tmux close, STE default)
@@ -28,11 +27,11 @@ Use this format only when the user asks for a status (not for every reply):
     Plan ✅ ─► Build ─┬─ Picker + helper ✅ ─► Setup items ✅ ─► Docs ✅ ─► Pushed ✅
                       └─ 0.16.0 ─┬─ Durable default on VM ✅ ─► tmux close at end ✅
                                  └─ STE default on ✅
-             ─► Review 🔄 ─► Push 0.16.0 ─► Install + setup ─► Live checks
+             ─► Review 🔄 ─► GPU run 🔄 ████░░ ─► Push 0.16.0 ⬜ ─► Live checks ⬜
    PROGRESS (current task: release 0.16.0)
     Code        ██████████ 100%   3 of 3 features built and tested
     Release     ░░░░░░░░░░   0%   0 of 1 (push)
-    Overall     █████░░░░░  50%   5 of 10 steps (Review is 🔄, not counted)
+    Overall     ██████░░░░  57%   8 of 14 steps (🔄 and ⬜ not counted)
    ```
 4. **Cluster**: if the status involves cluster work (an allocation, a GPU run, a
    running job), run `python3 {CLUSTER_STATUS} --job <id> [--log <run log>]` (or
@@ -41,7 +40,9 @@ Use this format only when the user asks for a status (not for every reply):
    after the code block, for each `🧑‍💻 Your job` line add the job name and one
    four-word sentence on what it does, from its `does:` evidence (`purpose unknown`
    if none; never guess beyond it). Explain each ⚠ in one line: meaning and proposal.
-   Warnings appear only for the run in scope; use `--warnings` only when asked for health.
+   Warnings: only for the run in scope; `--warnings` only when asked for health.
+   **Runs** (GPU runs, test suites over one hour): start only with `forgeloop_run.py
+   start`; chart them 🔄 with a bar. Rules: ${CLAUDE_PLUGIN_ROOT}/skills/implement-loop/run-card.md.
 5. **Close** with three bolded items:
    - **Next:** what happens next.
    - **What's stopping us:** each blocker (cluster, failing check, dependency,

@@ -149,10 +149,10 @@ else
     bad "every skill-relative file reference resolves" "$(head -5 <<<"$broken")"
 fi
 
-if grep -qE '^## 0\.16\.0$' "$REPO_ROOT/CHANGELOG.md"; then
-    ok "CHANGELOG has a 0.16.0 section"
+if grep -qE '^## 0\.17\.0$' "$REPO_ROOT/CHANGELOG.md"; then
+    ok "CHANGELOG has a 0.17.0 section"
 else
-    bad "CHANGELOG has a 0.16.0 section"
+    bad "CHANGELOG has a 0.17.0 section"
 fi
 
 # --- Session conventions hook ---------------------------------------------------------

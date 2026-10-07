@@ -143,11 +143,27 @@ check \
     "$SKILL_DIR/cluster-loop/allocate.md" \
     "yhadad_\\$\\{JOB_NAME\\}"
 
-# --- Behavior 5: Approval gate before allocation ----------------------------
+# --- Behavior 5: Announce step replaces the approval gate -------------------
 check \
-    "allocate.md requires user confirmation before salloc" \
+    "allocate.md has an Announce step" \
     "$SKILL_DIR/cluster-loop/allocate.md" \
-    "[Cc]onfirm|[Aa]pproval"
+    "^## Announce"
+check \
+    "allocate.md announces node, partition, job name, duration, Israel-time expiry and scancel" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    "scancel <jobid>"
+check \
+    "allocate.md allocates only a node the recommender marks free" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    "only a node the recommender marks free"
+check \
+    "allocate.md never touches another user's job" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    "[Nn]ever touch another user's job"
+check_absent_dir \
+    "cluster-loop no longer waits for a yes before allocating" \
+    "$SKILL_DIR/cluster-loop" \
+    "Confirm\\? \\[yes/no\\]|Approval Gate"
 
 # --- Behavior 6: Race condition triggers automatic re-scan ------------------
 check \
@@ -166,6 +182,24 @@ check_absent_dir \
     "cluster-loop has no explorer references (REQ-5)" \
     "$SKILL_DIR/cluster-loop" \
     "explorer"
+
+# --- Repair: exact job lookup and announce before first use ------------------
+check \
+    "allocate.md finds the job id by exact job-name match" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    '\$3==|\$3 ==' 
+check \
+    "allocate.md announce lists all six fields before any srun or run-wrapper call" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    "BEFORE any .srun. or run-wrapper call"
+check \
+    "allocate.md also applies the announce inside implement-loop Stage 0" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    "implement-loop Stage 0"
+check \
+    "allocate.md Success Output checklist names the six announce fields" \
+    "$SKILL_DIR/cluster-loop/allocate.md" \
+    "node, partition, job name, duration, expiry in Israel time, scancel"
 
 # --- Summary -----------------------------------------------------------------
 echo ""

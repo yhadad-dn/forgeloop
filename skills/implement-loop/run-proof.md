@@ -37,9 +37,11 @@ Rules:
 ## Stage 0: Target Setup
 
 - `device: cpu` → run locally, from `cwd`.
-- `device: gpu` → run inside a SLURM allocation through `cluster-loop`. Ask the user
-  for an active job ID, or offer `/cluster-loop` to allocate one (its approval gate
-  applies; never allocate without it). Record `RUN_JOBID`.
+- `device: gpu` → run inside a SLURM allocation through `cluster-loop`. Reuse
+  `RUN_JOBID` if one exists. Otherwise allocate through `/cluster-loop` (its Announce
+  step: allocate a free node, then tell the user node, partition, job name, duration,
+  expiry, and `scancel <jobid>`). This gate never asks the user for a job id. Record
+  `RUN_JOBID`.
 
 ## Stage C: Run
 
@@ -63,32 +65,37 @@ A run against stale code is not proof.
 
 ### 2. Execute
 
-Capture full stdout+stderr to `.claude/run-proofs/<task>-iter${ITER}.log` (create the
-directory; never stage or commit it).
-
-CPU:
-
-```bash
-cd ${CWD} && timeout ${TIMEOUT_SECONDS} bash -lc '${COMMAND}' \
-  > .claude/run-proofs/<task>-iter${ITER}.log 2>&1; echo "exit=$?"
-```
-
-GPU (per `../cluster-loop/srun-inside.md`; no `--pty` — output must be captured):
+Start the run only with `forgeloop_run.py` (rules in `run-card.md`; never a hand-built
+background command). If `CLAUDE_PLUGIN_ROOT` is empty, do not guess a path: tell the
+user to run the helper in their own terminal from the installed plugin directory
+(`~/.claude/plugins/cache/forgeloop/forgeloop/<version>/skills/implement-loop/forgeloop_run.py`),
+then stop.
 
 ```bash
-timeout ${TIMEOUT_SECONDS} srun --jobid=${RUN_JOBID} --chdir=${CWD} bash -lc '${COMMAND}' \
-  > .claude/run-proofs/<task>-iter${ITER}.log 2>&1; echo "exit=$?"
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/implement-loop/forgeloop_run.py" start --task <task> --device cpu|gpu [--jobid ${RUN_JOBID}] \
+  --cwd ${CWD} --timeout ${TIMEOUT} --iter ${ITER} [--criteria-file <json>] -- ${COMMAND}
 ```
 
-For runs longer than a few minutes, launch inside the allocation's tmux session with
-the same redirect and poll the log; do not block on it blindly. Check progress with
-`python3 ../cluster-loop/cluster_status.py --job ${RUN_JOBID} --log <log path>`: a
-stale log, idle GPUs, or an ETA past the allocation's expiry are reasons to stop and
-ask the user before the run wastes the allocation.
+`--criteria-file` is required when the task defines `pass_criteria` (see `run-card.md`).
+
+For `gpu` the helper runs the command with `srun --jobid` inside the allocation (see
+`../cluster-loop/srun-inside.md`). It writes the log `.claude/run-proofs/<task>-iter${ITER}.log`
+and the record `.claude/run-proofs/<task>-iter${ITER}.json` (never stage or commit them).
+A run without a record that has a terminal state is not counted as proof.
+
+Show the RUN CARD, follow the update cadence in `run-card.md`, and poll with
+`python3 "${CLAUDE_PLUGIN_ROOT}/skills/implement-loop/forgeloop_run.py" status --record <record>`; do not block on the run blindly. Check
+the cluster with `python3 ../cluster-loop/cluster_status.py --job ${RUN_JOBID} --log <log path>`:
+a stale log, idle GPUs, or an ETA past the allocation's expiry are reasons to stop and
+ask the user before the run wastes the allocation. At the end show
+`python3 "${CLAUDE_PLUGIN_ROOT}/skills/implement-loop/forgeloop_run.py" card --record <record> --kind finish`.
 
 ### 3. Judge
 
-Check each `pass_criteria` entry against the log. Every PASS must quote the log line
+Check that the record's `command` equals the `RUN_PROOF` command text and that its
+`command_sha256` equals the sha256 of that text (the finish card prints both); a
+mismatch means the run is not the contracted one and is not proof. Check each `pass_criteria` entry against the log and the run record (the finish card
+lists the exit code and state; the script never judges). Every PASS must quote the log line
 (or computed value) that proves it. Inferred or assumed results are not evidence.
 
 ## Required Output
@@ -99,9 +106,11 @@ RUN_PROOF_RESULT:
   device: cpu | gpu
   target: local | job <RUN_JOBID> on <nodelist>
   command: <exact command run>
+  state: passed | failed | timeout | lost | error   # from the record; anything else is invalid
   exit_code: <n>
   duration: <HH:MM:SS>
   log_path: .claude/run-proofs/<task>-iter<N>.log
+  record_path: .claude/run-proofs/<task>-iter<N>.json   # terminal state required
   criteria:
     - <criterion>: PASS | FAIL — <quoted log evidence>
   FIX_BRIEF:
@@ -110,7 +119,10 @@ RUN_PROOF_RESULT:
 
 ## Verdict Handling
 
-- `PASS`: every criterion passed with quoted evidence.
+- Only state `passed` can support an overall PASS. `failed` is `FAIL`; `lost` and `error`
+  are `ERROR`; `timeout` is handled below. A record whose state is not one of the five
+  (or is still `starting`/`running`) is not proof.
+- `PASS`: state `passed` and every criterion passed with quoted evidence.
 - `FAIL`: the command ran but a criterion failed (non-zero exit, wrong output, missed
   threshold, crash, OOM in the code under test). Produces a `FIX_BRIEF` → Stage R.
 - `ERROR`: the proof could not run for reasons outside the code — allocation not
